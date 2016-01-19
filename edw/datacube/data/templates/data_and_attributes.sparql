@@ -9,10 +9,7 @@ SELECT DISTINCT {% for f in columns %} {%- set n = loop.index -%}
 WHERE {
   {%- set obs_uri = notations.lookup_measure_uri() %}
 
-  ?observation
-    a qb:Observation ;
-    qb:dataSet {{ dataset|uri_n3 }} ;
-    {{ obs_uri|uri_n3 }} ?value .
+  ?observation {{ obs_uri|uri_n3 }} ?value .
 
 {%- for f_dimension_code, f_option_code in filters %}
 
@@ -34,5 +31,8 @@ OPTIONAL {
 
 {%- endfor %}
 
+  FILTER EXISTS {
+    ?observation qb:dataSet {{ dataset|uri_n3 }}
+  }
 }
 LIMIT 10000

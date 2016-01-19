@@ -4,14 +4,14 @@ PREFIX dad-prop: <http://semantic.digital-agenda-data.eu/def/property/>
 
 SELECT DISTINCT ?groupName ?indicator ?order ?inner_order
 WHERE {
-  ?obs
-    a qb:Observation ;
-    qb:dataSet {{ dataset|uri_n3 }} ;
-    dad-prop:indicator ?indicator .
+  ?obs dad-prop:indicator ?indicator .
   ?indicator dad-prop:membership ?x.
   ?x dad-prop:member-of ?indicatorgroup.
   ?indicatorgroup skos:prefLabel ?groupName.
   ?indicatorgroup dad-prop:order ?order.
   ?x dad-prop:order ?inner_order
+  FILTER EXISTS {
+    ?obs qb:dataSet {{ dataset|uri_n3 }}
+  }
 }
 ORDER BY ?order ?inner_order
