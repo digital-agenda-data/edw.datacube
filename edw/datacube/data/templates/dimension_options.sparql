@@ -10,8 +10,6 @@ SELECT DISTINCT ?uri WHERE {
 
 {%- set obs_uri = notations.lookup_measure_uri() %}
 
-    ?observation qb:dataSet {{ dataset|uri_n3 }} .
-
 {%- for f_dimension_code, f_option_code in filters %}
     {{ one_filter('observation', 'filter_%d' % loop.index,
                     f_dimension_code, f_option_code) }}
@@ -28,5 +26,8 @@ SELECT DISTINCT ?uri WHERE {
     ?observation {{ obs_uri|uri_n3 }} ?value .
 {% endif %}
 
+  FILTER EXISTS {
+      ?observation qb:dataSet {{ dataset|uri_n3 }} .
+  }
 }
 LIMIT 1000
