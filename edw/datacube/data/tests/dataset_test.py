@@ -60,7 +60,7 @@ def test_dataset_dimensions_flat_list():
 def test_get_dataset_details():
     cube = create_cube()
     res = cube.get_dataset_details()
-    by_notation = {r['notation']: r for r in res}
+    by_notation = {r.get('notation'): r for r in res}
     i_iusell = by_notation['i_iusell']
     assert "selling online" in i_iusell.get('short_label', '').lower()
     assert "in the last 3 months" in i_iusell['definition']
