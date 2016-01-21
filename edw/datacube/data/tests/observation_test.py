@@ -170,6 +170,8 @@ def test_get_observations_cp():
     ]
     result = list(cube.get_observations_cp(filters, whitelist))
     assert len(result) == 9
-    assert result[0]['value'] == 0.647121
-    assert result[0]['indicator']['label'].startswith('Households with access to the Internet at home')
-    assert result[0]['indicator']['short-label'].startswith('Households with access to the Internet at home')
+    h_iacc = filter(lambda item: item['indicator']['notation'] == 'h_iacc', result)[0]
+    assert h_iacc['value'] == 0.647121
+    assert h_iacc['indicator']['label'].startswith('Households with access to the Internet at home')
+    assert h_iacc['indicator']['short-label'].startswith('Households with access to the Internet at home')
+    assert len(filter(lambda item: item['indicator']['notation'] == 'i_ia12ave', result)) == 3
