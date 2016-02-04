@@ -206,6 +206,14 @@
     />
 
   <browser:page
+    name="export.svg"
+    for="..interfaces.IDataCube"
+    class=".export.ExportSvg"
+    attribute="export"
+    permission="zope2.View"
+    />
+
+  <browser:page
     name="svg2png"
     for="..interfaces.IDataCube"
     class=".export.SvgToPng"

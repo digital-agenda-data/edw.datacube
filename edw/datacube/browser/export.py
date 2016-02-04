@@ -327,6 +327,21 @@ def cairosvg_surface_color(string=None, opacity=1):
     else:
         return plain_color + (opacity,)
 
+class ExportSvg(BrowserView):
+    def export(self):
+        """
+        Simply serve the png submitted as request parameter.
+        This is needed only for the Content-Disposition header.
+        """
+        svg = self.request.get('svg')
+        filename = self.request.get('filename', 'chart');
+        self.request.response.setHeader(
+            'Content-Type', 'image/svg+xml')
+        self.request.response.setHeader(
+            'Content-Disposition',
+            'attachment; filename="' + filename + '.svg"')
+        self.request.response.write(svg)
+        return self.request.response
 
 class SvgToPng(BrowserView):
     def convert(self):
@@ -334,7 +349,7 @@ class SvgToPng(BrowserView):
         Converts a svg to png and http returns the png.
         """
         svg = self.request.get('svg')
-        filename = self.request.get('filename', 'chart.png');
+        filename = self.request.get('filename', 'chart');
         png_file = tempfile.TemporaryFile(mode='w+b')
 
         cairosvg.surface.color = cairosvg_surface_color
@@ -344,7 +359,7 @@ class SvgToPng(BrowserView):
             'Content-Type', 'image/png')
         self.request.response.setHeader(
             'Content-Disposition',
-            'attachment; filename="' + filename + '"')
+            'attachment; filename="' + filename + '.png"')
 
         png_file.flush()
         png_file.seek(0)
