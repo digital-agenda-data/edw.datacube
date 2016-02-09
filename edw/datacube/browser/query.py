@@ -12,6 +12,14 @@ from DateTime import DateTime
 
 logger = logging.getLogger('edw.datacube')
 
+def json_response(func):
+    def _decorator(self, *args, **kwargs):
+        header = self.request.RESPONSE.setHeader
+        header("Content-Type", "application/json")
+        header("Expires", "Sun, 17-Jan-2038 19:14:07 GMT")
+        return func(self, *args, **kwargs)
+    return _decorator
+
 def jsonify(request, data, cache=True):
     header = request.RESPONSE.setHeader
     header("Content-Type", "application/json")
@@ -166,6 +174,7 @@ class AjaxDataView(BrowserView):
         return self.jsonify({'options': rows})
 
 
+    @json_response
     @eeacache(cacheKey, dependencies=['edw.datacube'])
     def dimension_value_metadata(self):
         dimension = self.request.form['dimension']
