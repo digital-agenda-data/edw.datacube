@@ -164,9 +164,11 @@ class NotationMap(object):
             ns = data['by_notation'][namespace]={}
         rv = ns.get(notation)
         if rv is None:
-            if namespace not in ['ref-area'] and dict(self.CODELISTS)[namespace] is not None:
-                uri = dict(self.CODELISTS)[namespace] + notation,
-                rv = self._add_item(data, uri, namespace, notation)
+            base_uri = dict(self.CODELISTS).get(namespace)
+            if namespace not in ['ref-area'] and base_uri is not None:
+                if base_uri[-1] not in ('/', '#'):
+                    base_uri += '/'
+                rv = self._add_item(data, base_uri + notation, namespace, notation)
             else:
                 logger.warn('lookup failure %r', (namespace, notation))
         return rv
