@@ -5,21 +5,17 @@ PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX dad-prop: <http://semantic.digital-agenda-data.eu/def/property/>
 
 SELECT DISTINCT ?uri ?notation ?definition ?label ?short_label ?note
-                ?source_label ?source_definition ?source_notes ?source_url
-                ?groupName ?parentOrder ?innerOrder
+                ?groupName ?parentOrder ?innerOrder ?parentUri
 
+FROM <http://semantic.digital-agenda-data.eu/codelist/unit-measure/>
+FROM <http://semantic.digital-agenda-data.eu/codelist/unit-measure/>
 WHERE {
 
-  { ?uri skos:notation ?notation }
+  {  ?uri skos:notation ?notation }
   UNION { ?uri skos:prefLabel ?label }
   UNION { ?uri skos:altLabel ?short_label }
   UNION { ?uri skos:note ?note }
   UNION { ?uri skos:definition ?definition }
-    UNION { ?uri dc:source [
-               skos:prefLabel ?source_label ;
-               skos:definition ?source_definition ;
-               foaf:page ?source_url ] }
-    UNION {?uri dc:source [skos:note ?source_notes] }
   UNION {
     ?uri dad-prop:membership ?parentNode.
     OPTIONAL {?parentNode dad-prop:order ?innerOrder} .
@@ -28,12 +24,8 @@ WHERE {
     OPTIONAL {?parentUri dad-prop:order ?parentOrder}.
   }
 
-FILTER (
-{%- for uri in uri_list %}
-  ?uri = {{ uri|uri_n3 }}
-  {%- if not loop.last %} || {% endif %}
-{%- endfor %}
-)
-
+FILTER(STRSTARTS(STR(?uri), "http://semantic.digital-agenda-data.eu/codelist/unit-measure/"))
 }
+order by ?uri
 LIMIT 10000
+

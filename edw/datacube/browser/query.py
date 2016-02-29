@@ -44,6 +44,8 @@ def cacheKey_cp(method, self, *args, **kwargs):
 class AjaxDataView(BrowserView):
 
     def __init__(self, context, request):
+        logger.info('Init ADV')
+        # import pdb; pdb.set_trace()
         super(AjaxDataView, self).__init__(context, request)
         self.endpoint = self.request.get('endpoint', '')
         self.cube = context.get_cube(self.endpoint)
@@ -93,6 +95,21 @@ class AjaxDataView(BrowserView):
         return self.jsonify(res)
 
     @eeacache(cacheKey, dependencies=['edw.datacube'])
+    def my_breakdowns(self):
+        res = self.cube.get_all_breakdowns()
+        return self.jsonify(res)
+
+    @eeacache(cacheKey, dependencies=['edw.datacube'])
+    def my_indicators(self):
+        res = self.cube.get_all_indicators()
+        return self.jsonify(res)
+
+    @eeacache(cacheKey, dependencies=['edw.datacube'])
+    def my_unitmeasures(self):
+        res = self.cube.get_all_unitmeasures()
+        return self.jsonify(res)
+
+    # @eeacache(cacheKey, dependencies=['edw.datacube'])
     def dimension_options(self):
         form = dict(self.request.form)
         form.pop('rev', None)

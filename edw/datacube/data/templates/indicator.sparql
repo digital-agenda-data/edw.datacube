@@ -1,3 +1,4 @@
+
 PREFIX dc: <http://purl.org/dc/terms/>
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 PREFIX qb: <http://purl.org/linked-data/cube#>
@@ -7,7 +8,8 @@ PREFIX dad-prop: <http://semantic.digital-agenda-data.eu/def/property/>
 SELECT DISTINCT ?uri ?notation ?definition ?label ?short_label ?note
                 ?source_label ?source_definition ?source_notes ?source_url
                 ?groupName ?parentOrder ?innerOrder
-
+FROM <http://semantic.digital-agenda-data.eu/codelist/indicator/>
+FROM <http://semantic.digital-agenda-data.eu/codelist/indicator-group/>
 WHERE {
 
   { ?uri skos:notation ?notation }
@@ -28,12 +30,9 @@ WHERE {
     OPTIONAL {?parentUri dad-prop:order ?parentOrder}.
   }
 
-FILTER (
-{%- for uri in uri_list %}
-  ?uri = {{ uri|uri_n3 }}
-  {%- if not loop.last %} || {% endif %}
-{%- endfor %}
-)
-
+FILTER(STRSTARTS(STR(?uri), "http://semantic.digital-agenda-data.eu/codelist/indicator/"))
 }
+order by ?uri
 LIMIT 10000
+
+

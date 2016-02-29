@@ -84,6 +84,7 @@ class NotationMap(object):
     MEASURE = 'http://purl.org/linked-data/sdmx/2009/measure#obsValue'
 
     def __init__(self, cube):
+        logger.info('INIT cube')
         self.cube = cube
         self.CODELISTS = self.build_codelists()
         self.DIMENSIONS = {}
@@ -250,6 +251,62 @@ class Cube(object):
             'dataset': dataset,
         })
         return list(self._execute(query))[0]
+
+    @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
+    def get_all_unitmeasures(self):
+        query = sparql_env.get_template('unit.sparql').render()
+        res = list(self._execute(query))
+        result = {}
+        for row in res:
+            uri = row['uri']
+            if uri in result:
+                obj = result[uri]
+            else:
+                result[uri] = obj = {}
+
+            for prop in row:
+                if row[prop] is not None:
+                    obj[prop] = row[prop]
+
+        return result.values()
+
+    @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
+    def get_all_breakdowns(self):
+        query = sparql_env.get_template('breakdown.sparql').render()
+        res = list(self._execute(query))
+        result = {}
+        for row in res:
+            uri = row['uri']
+            if uri in result:
+                obj = result[uri]
+            else:
+                result[uri] = obj = {}
+
+            for prop in row:
+                if row[prop] is not None:
+                    obj[prop] = row[prop]
+
+        return result.values()
+
+    @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
+    def get_all_indicators(self):
+        query = sparql_env.get_template('indicator.sparql').render()
+        res = list(self._execute(query))
+        result = {}
+        for row in res:
+            uri = row['uri']
+            if uri in result:
+                obj = result[uri]
+            else:
+                result[uri] = obj = {}
+
+            for prop in row:
+                if row[prop] is not None:
+                    obj[prop] = row[prop]
+                    #import pytest;pytest.set_trace();
+
+        #result = [{k: row[k] for k in row if row[k] is not None} for row in res]
+        return result.values()
 
     def get_dataset_details(self):
         #sparql_template = 'dataset_details.sparql'

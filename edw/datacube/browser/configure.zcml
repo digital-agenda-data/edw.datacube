@@ -94,6 +94,30 @@
     />
 
   <browser:page
+    name="my_breakdowns"
+    for="..interfaces.IDataCube"
+    class=".query.AjaxDataView"
+    attribute="my_breakdowns"
+    permission="zope2.View"
+    />
+
+  <browser:page
+    name="my_indicators"
+    for="..interfaces.IDataCube"
+    class=".query.AjaxDataView"
+    attribute="my_indicators"
+    permission="zope2.View"
+    />
+
+  <browser:page
+    name="my_unitmeasures"
+    for="..interfaces.IDataCube"
+    class=".query.AjaxDataView"
+    attribute="my_unitmeasures"
+    permission="zope2.View"
+    />
+
+  <browser:page
     name="revision"
     for="..interfaces.IDataCube"
     class=".query.AjaxDataView"
