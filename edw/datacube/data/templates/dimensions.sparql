@@ -2,7 +2,7 @@ PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX dad-prop: <http://semantic.digital-agenda-data.eu/def/property/>
-SELECT DISTINCT ?dimension ?notation ?dimension_type ?label ?comment ?group_notation WHERE {
+SELECT DISTINCT ?dimension ?notation ?dimension_type ?label ?comment ?group_notation ?uri WHERE {
   {{ dataset|uri_n3 }} qb:structure ?structure .
   ?structure qb:component ?componentSpec .
   ?componentSpec ?dimension_type ?dimension .
@@ -29,6 +29,9 @@ SELECT DISTINCT ?dimension ?notation ?dimension_type ?label ?comment ?group_nota
   OPTIONAL {
     ?dimension dad-prop:grouped-using ?group .
     ?group skos:notation ?group_notation .
+  }
+  OPTIONAL {
+    ?dimension qb:codeList ?uri
   }
 }
 ORDER BY ?componentSpecOrder

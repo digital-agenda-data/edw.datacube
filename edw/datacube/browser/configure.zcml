@@ -94,26 +94,10 @@
     />
 
   <browser:page
-    name="my_breakdowns"
+    name="dimension_metadata"
     for="..interfaces.IDataCube"
     class=".query.AjaxDataView"
-    attribute="my_breakdowns"
-    permission="zope2.View"
-    />
-
-  <browser:page
-    name="my_indicators"
-    for="..interfaces.IDataCube"
-    class=".query.AjaxDataView"
-    attribute="my_indicators"
-    permission="zope2.View"
-    />
-
-  <browser:page
-    name="my_unitmeasures"
-    for="..interfaces.IDataCube"
-    class=".query.AjaxDataView"
-    attribute="my_unitmeasures"
+    attribute="dimension_metadata"
     permission="zope2.View"
     />
 

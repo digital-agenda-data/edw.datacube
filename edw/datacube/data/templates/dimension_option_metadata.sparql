@@ -6,7 +6,7 @@ PREFIX dad-prop: <http://semantic.digital-agenda-data.eu/def/property/>
 
 SELECT DISTINCT ?uri ?notation ?definition ?label ?short_label ?note
                 ?source_label ?source_definition ?source_notes ?source_url
-                ?groupName ?parentOrder ?innerOrder
+                ?groupName ?groupNotation ?parentOrder ?innerOrder
 
 WHERE {
 
@@ -25,6 +25,7 @@ WHERE {
     OPTIONAL {?parentNode dad-prop:order ?innerOrder} .
     ?parentNode dad-prop:member-of ?parentUri.
     ?parentUri skos:prefLabel ?groupName.
+    ?parentUri skos:notation ?groupNotation.
     OPTIONAL {?parentUri dad-prop:order ?parentOrder}.
   }
 
@@ -36,4 +37,4 @@ FILTER (
 )
 
 }
-LIMIT 10000
+LIMIT 50000

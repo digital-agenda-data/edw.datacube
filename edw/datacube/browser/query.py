@@ -44,8 +44,6 @@ def cacheKey_cp(method, self, *args, **kwargs):
 class AjaxDataView(BrowserView):
 
     def __init__(self, context, request):
-        logger.info('Init ADV')
-        # import pdb; pdb.set_trace()
         super(AjaxDataView, self).__init__(context, request)
         self.endpoint = self.request.get('endpoint', '')
         self.cube = context.get_cube(self.endpoint)
@@ -95,29 +93,19 @@ class AjaxDataView(BrowserView):
         return self.jsonify(res)
 
     @eeacache(cacheKey, dependencies=['edw.datacube'])
-    def my_breakdowns(self):
-        res = self.cube.get_all_breakdowns()
+    def dimension_metadata(self):
+        res = self.cube.get_dimension_metadata()
         return self.jsonify(res)
 
     @eeacache(cacheKey, dependencies=['edw.datacube'])
-    def my_indicators(self):
-        res = self.cube.get_all_indicators()
-        return self.jsonify(res)
-
-    @eeacache(cacheKey, dependencies=['edw.datacube'])
-    def my_unitmeasures(self):
-        res = self.cube.get_all_unitmeasures()
-        return self.jsonify(res)
-
-    # @eeacache(cacheKey, dependencies=['edw.datacube'])
     def dimension_options(self):
         form = dict(self.request.form)
         form.pop('rev', None)
         dimension = form.pop('dimension')
         filters = sorted(form.items())
         options = self.cube.get_dimension_options(dimension, filters)
-        filtered_options = filter(lambda it: it['notation'] != "", options)
-        return self.jsonify({'options': filtered_options})
+        # filtered_options = filter(lambda it: it['notation'] != "", options)
+        return self.jsonify({'options': options})
 
     @eeacache(cacheKey, dependencies=['edw.datacube'])
     def dimension_options_xy(self):
