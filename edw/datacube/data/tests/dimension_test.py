@@ -169,7 +169,8 @@ def test_get_years_for_xy_indicators():
         [('indicator', 'i_iu3g')],
     )
     years = [i['notation'] for i in items]
-    assert len(years) == 6
+    assert len(years) == 9
+    assert '2015' in years
     assert '2010' in years
     assert '2012' in years
     assert '2006' not in years
@@ -265,8 +266,9 @@ def test_indicator_groups_are_sorted():
     codes = [y['notation'] for y in res]
     assert codes == ['telecom', 'broadband', 'bbquality', 'mobile',
         'internet-usage', 'audiovisual', 'internet-services', 'egovernment', 'ecommerce',
-        'ebusiness', 'ict-skills', 'ict-edu', 'eHealth',
-        'ict-sector', 'research-and-development', 'back']
+        'ebusiness', 'ict-skills', 'ict-specialist', 'ict-edu', 'eHealth',
+        'security-privacy', 'ict-sector', 'research-and-development',
+        'back', 'discontinued']
 
 @sparql_test
 def test_dimension_options_sort_bug():

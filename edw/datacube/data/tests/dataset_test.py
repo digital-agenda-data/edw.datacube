@@ -81,18 +81,32 @@ def test_get_dimension_option_metadata_list():
         'http://semantic.digital-agenda-data.eu/codelist/indicator/foa_cit',
         'http://semantic.digital-agenda-data.eu/codelist/indicator/bb_ne',
         'http://semantic.digital-agenda-data.eu/codelist/indicator/mbb_penet',
-        'http://semantic.digital-agenda-data.eu/codelist/indicator/e_itsp2'
+        'http://semantic.digital-agenda-data.eu/codelist/indicator/e_itsp2',
+        'http://semantic.digital-agenda-data.eu/codelist/indicator/bb_penet'
     ]
     res = cube.get_dimension_option_metadata_list('indicator', uri_list)
     result = filter( lambda item: item['notation'] == 'e_igov', res)[0]
-    assert result['groupName'] == 'eGovernment'
-    assert result['innerOrder'] == '5'
+    assert result['groupName'] == 'Discontinued indicators'
+    assert result['innerOrder'] == '25'
     assert result['label'] == 'Enterprises interacting online with public authorities'
     assert result['notation'] == 'e_igov'
-    assert result['parentOrder'] == '60'
+    assert result['parentOrder'] == '900'
     assert result['short_label'] == 'Use of eGovernment services - enterprises'
     assert result['source_definition'] == 'Eurostat - Community survey on ICT usage and eCommerce in Enterprises'
     assert result['source_label'] == 'Eurostat - ICT Enterprises survey'
     assert result['source_url'] == 'http://ec.europa.eu/eurostat/web/information-society/data/comprehensive-database'
     assert result['uri'] == 'http://semantic.digital-agenda-data.eu/codelist/indicator/e_igov'
     assert result['definition'][0:31] == 'Use of internet for interaction'
+
+    result = filter( lambda item: item['notation'] == 'bb_penet', res)[0]
+    assert result['groupName'] == 'Broadband take-up and coverage'
+    assert result['innerOrder'] == '6'
+    assert result['label'] == 'Fixed broadband take-up (subscriptions/100 people)'
+    assert result['notation'] == 'bb_penet'
+    assert result['parentOrder'] == '20'
+    assert result['short_label'] == 'Fixed broadband take-up (penetration rate)'
+    assert result['source_definition'][0:43] == 'Electronic communications market indicators'
+    assert result['source_label'] == 'Communications Committee survey'
+    assert result['source_url'] == 'http://ec.europa.eu/digital-agenda/about-fast-and-ultra-fast-internet-access'
+    assert result['uri'] == 'http://semantic.digital-agenda-data.eu/codelist/indicator/bb_penet'
+    assert result['definition'][0:39] == 'Number of fixed broadband subscriptions'

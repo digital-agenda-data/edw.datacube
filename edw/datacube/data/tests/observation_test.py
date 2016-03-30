@@ -32,18 +32,18 @@ def test_get_observations_with_labels_xy():
 @sparql_test
 def test_get_observations_with_notes_single_dimension():
     filters = [
-        ('indicator-group', 'egovernment'),
-        ('indicator', 'e_igov'),
+        ('indicator-group', 'broadband'),
+        ('indicator', 'h_bbfix'),
         ('breakdown-group', 'total'),
-        ('breakdown', 'ent_all_xfin',),
-        ('unit-measure', 'pc_ent'),
-        ('time-period', '2013'),
+        ('breakdown', 'HH_total',),
+        ('unit-measure', 'pc_hh'),
+        ('time-period', '2010'),
     ]
     cube = create_cube()
     points = list(cube.get_observations(filters))
     assert filter(
-      lambda item: item['ref-area']['notation'] == 'SI',
-      points)[0]['note'] == 'Outsourcing of contacts with public authorities via accounting enterprises included, thus data unreliable.'
+      lambda item: item['ref-area']['notation'] == 'LT',
+      points)[0]['note'] == 'Sum of households in quartiles less than total.348 households refused to answer question about household income.'
 
 
 @sparql_test
@@ -142,7 +142,7 @@ def test_get_observations_with_all_attributes():
     filters = [ ('breakdown', 'TOTAL_FBB'),
                 ('indicator', 'bb_dsl'),
                 ('indicator-group', 'broadband'),
-                ('ref-area', 'EU27'),
+                ('ref-area', 'EU28'),
                 ('unit-measure', 'pc_lines')]
     result = list(cube.get_observations(filters))
     assert len(result) >= 18
