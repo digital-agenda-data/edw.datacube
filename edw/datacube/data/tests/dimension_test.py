@@ -51,6 +51,7 @@ def test_get_all_country_options():
     assert 'ES' in codes
     assert 'BG' in codes
     assert 'EU27' in codes
+    assert 'EU28' in codes
 
 
 @sparql_test
