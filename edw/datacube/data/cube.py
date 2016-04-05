@@ -605,13 +605,13 @@ class Cube(object):
                 # get years from merged_intervals
                 years = []
                 for option in options(res):
-                  # search in merged_intervals
-                  interval = filter(lambda interval:interval['uri'] == option, merged_intervals)
-                  if ( interval == [] ):
-                      # this was a year, not present in merged_intervals
-                      years.append(option)
-                  else:
-                      years.append(interval[0]['parent_year'])
+                    # search in merged_intervals
+                    interval = filter(lambda interval:interval['uri'] == option, merged_intervals)
+                    if ( interval == [] ):
+                        # this was a year, not present in merged_intervals
+                        years.append(option)
+                    else:
+                        years.append(interval[0]['parent_year'])
                 if common_uris is None:
                     common_uris = set(years)
                 else:
@@ -620,23 +620,17 @@ class Cube(object):
         for uri in common_uris:
             data.append((uri, dimension))
 
-        data2 = []
-        for uri in common_uris:
-            data2.append({'uri':uri})
-
-        return data2
-
         # duplicates - e.g. when a breakdown is member of several breakdown groups
-        # labels1 = self.get_labels_with_duplicates(data)
-        # if labels1:
-        #     labels1.sort(key=lambda item: int(item.pop('order') or '0'))
-        #     # filter labels1 by group_notation if present in filters
-        #     if dimension in self.notations.GROUPERS.keys():
-        #         group_dimension = self.notations.GROUPERS[dimension]
-        #         filtered_group = next((value for dimension, value in filters if dimension == group_dimension), None)
-        #         if filtered_group:
-        #             labels1 = [x for x in labels1 if x['group_notation'] == filtered_group]
-        # return labels1
+        labels1 = self.get_labels_with_duplicates(data)
+        if labels1:
+            labels1.sort(key=lambda item: int(item.pop('order') or '0'))
+            # filter labels1 by group_notation if present in filters
+            if dimension in self.notations.GROUPERS.keys():
+                group_dimension = self.notations.GROUPERS[dimension]
+                filtered_group = next((value for dimension, value in filters if dimension == group_dimension), None)
+                if filtered_group:
+                    labels1 = [x for x in labels1 if x['group_notation'] == filtered_group]
+        return labels1
         #rv = [labels.get(uri, self.get_other_labels(uri)) for uri in common_uris]
         #rv.sort(key=lambda item: int(item.pop('order') or '0'))
         #return rv
