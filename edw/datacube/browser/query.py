@@ -92,6 +92,7 @@ class AjaxDataView(BrowserView):
         res = self.cube.notations.get()
         return self.jsonify(res)
 
+    @json_response
     @eeacache(cacheKey, dependencies=['edw.datacube'])
     def dimension_metadata(self):
         res = self.cube.get_dimension_metadata()
