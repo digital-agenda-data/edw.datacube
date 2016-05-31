@@ -16,7 +16,7 @@ DataCubeSchema = folder.ATFolderSchema.copy() + atapi.Schema((
     atapi.TextField(
         'endpoint',
         schemata="default",
-        default="http://virtuoso.scoreboard.edw.ro/sparql",
+        default="http://test-virtuoso.digital-agenda-data.eu/sparql",
         required=True,
         default_content_type='text/plain',
         allowable_content_types=('text/plain',),

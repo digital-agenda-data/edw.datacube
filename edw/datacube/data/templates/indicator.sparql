@@ -1,3 +1,4 @@
+
 PREFIX dc: <http://purl.org/dc/terms/>
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 PREFIX qb: <http://purl.org/linked-data/cube#>
@@ -6,8 +7,9 @@ PREFIX dad-prop: <http://semantic.digital-agenda-data.eu/def/property/>
 
 SELECT DISTINCT ?uri ?notation ?definition ?label ?short_label ?note
                 ?source_label ?source_definition ?source_notes ?source_url
-                ?group_name ?group_notation ?parent_order ?inner_order ?order
-
+                ?groupName ?parentOrder ?innerOrder
+FROM <http://semantic.digital-agenda-data.eu/codelist/indicator/>
+FROM <http://semantic.digital-agenda-data.eu/codelist/indicator-group/>
 WHERE {
 
   { ?uri skos:notation ?notation }
@@ -22,20 +24,15 @@ WHERE {
     UNION {?uri dc:source [skos:note ?source_notes] }
   UNION {
     ?uri dad-prop:membership ?parentNode.
-    OPTIONAL {?parentNode dad-prop:order ?inner_order} .
+    OPTIONAL {?parentNode dad-prop:order ?innerOrder} .
     ?parentNode dad-prop:member-of ?parentUri.
-    ?parentUri skos:prefLabel ?group_name.
-    ?parentUri skos:notation ?group_notation.
-    OPTIONAL {?parentUri dad-prop:order ?parent_order}.
-    OPTIONAL {?uri dad-prop:order ?order }
+    ?parentUri skos:prefLabel ?groupName.
+    OPTIONAL {?parentUri dad-prop:order ?parentOrder}.
   }
 
-FILTER (
-{%- for uri in uri_list %}
-  ?uri = {{ uri|uri_n3 }}
-  {%- if not loop.last %} || {% endif %}
-{%- endfor %}
-)
-
+FILTER(STRSTARTS(STR(?uri), "http://semantic.digital-agenda-data.eu/codelist/indicator/"))
 }
-LIMIT 50000
+order by ?uri
+LIMIT 10000
+
+

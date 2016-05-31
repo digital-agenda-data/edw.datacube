@@ -1,0 +1,20 @@
+PREFIX qb: <http://purl.org/linked-data/cube#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX sdmx-measure: <http://purl.org/linked-data/sdmx/2009/measure#>
+PREFIX dad-prop: <http://semantic.digital-agenda-data.eu/def/property/>
+
+select distinct ?values ?uri ?notation WHERE {
+  ?observation ?uri ?values .
+  ?uri a qb:DimensionProperty .
+  ?uri skos:notation ?notation .
+
+  FILTER EXISTS {
+    ?observation qb:dataSet {{ dataset|uri_n3 }}
+  }
+  {%- if notation %}
+    FILTER (
+       ?notation = "{{ notation }}"
+    )
+  {%- endif %}
+}
+limit 10000

@@ -251,6 +251,167 @@ class Cube(object):
         })
         return list(self._execute(query))[0]
 
+    @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
+    def get_all_unitmeasures(self):
+        query = sparql_env.get_template('unit.sparql').render()
+        res = list(self._execute(query))
+        result = {}
+        for row in res:
+            uri = row['uri']
+            if uri in result:
+                obj = result[uri]
+            else:
+                result[uri] = obj = {}
+
+            for prop in row:
+                if row[prop] is not None:
+                    obj[prop] = row[prop]
+
+        return result.values()
+
+    @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
+    def get_all_breakdowns(self):
+        query = sparql_env.get_template('breakdown.sparql').render()
+        res = list(self._execute(query))
+        result = {}
+        for row in res:
+            uri = row['uri']
+            if uri in result:
+                obj = result[uri]
+            else:
+                result[uri] = obj = {}
+
+            for prop in row:
+                if row[prop] is not None:
+                    obj[prop] = row[prop]
+
+        return result.values()
+
+    @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
+    def get_all_indicators(self):
+        query = sparql_env.get_template('indicator.sparql').render()
+        res = list(self._execute(query))
+        result = {}
+        for row in res:
+            uri = row['uri']
+            if uri in result:
+                obj = result[uri]
+            else:
+                result[uri] = obj = {}
+
+            for prop in row:
+                if row[prop] is not None:
+                    obj[prop] = row[prop]
+                    #import pytest;pytest.set_trace();
+
+        #result = [{k: row[k] for k in row if row[k] is not None} for row in res]
+        return result.values()
+
+
+    def get_all_dimension_uris(self):
+        query = sparql_env.get_template('dimension_values.sparql').render(**{
+            'dataset': self.dataset,
+        })
+        res = list(self._execute(query))
+        result = {}
+
+        result = {row['values']: row for row in res}
+
+        for group_dimension in self.get_group_dimensions():
+            query = sparql_env.get_template('dimension_options.sparql').render(**{
+                'dataset': self.dataset,
+                'dimension_code': group_dimension,
+                'group_dimensions': self.get_group_dimensions(),
+                'notations': self.notations,
+            })
+            res = list(self._execute(query))
+            for row in res:
+                row['values'] = row['uri']
+                row['notation'] = group_dimension
+
+            result.update({row['values']: row for row in res})
+        return result
+
+
+    def get_dimension_uris_notation(self, notation):
+        if not notation in self.get_group_dimensions():
+            query = sparql_env.get_template('dimension_values.sparql').render(**{
+                'dataset': self.dataset,
+                'notation': notation,
+            })
+            res = list(self._execute(query))
+            return {row['values']: row for row in res}
+        else:
+            query = sparql_env.get_template('dimension_options.sparql').render(**{
+                'dataset': self.dataset,
+                'dimension_code': notation,
+                'group_dimensions': self.get_group_dimensions(),
+                'notations': self.notations,
+            })
+            res = list(self._execute(query))
+            for row in res:
+                row['values'] = row['uri']
+                row['notation'] = notation
+
+            return {row['values']: row for row in res}
+
+
+    def get_dimension_metadata(self):
+        dimensions = self.get_dimensions()
+
+        result = {}
+
+        # dimensions
+        for dim in dimensions['dimension']:
+            uri_list = self.get_dimension_uris_notation(dim['notation'])
+            query = sparql_env.get_template('dimension_option_metadata.sparql').render(**{
+                'uri_list': uri_list,
+            })
+
+            result2 = {}
+
+            for row in list(self._execute(query)):
+                uri = row['uri']
+
+                list_entry = result2
+                if uri in list_entry:
+                    obj = list_entry[uri]
+                else:
+                    list_entry[uri] = obj = {}
+
+                for prop in row:
+                    if row[prop] is not None:
+                        obj[prop] = row[prop]
+
+            result[dim['notation']] = result2.values()
+
+        # dimension groups
+        for dim in dimensions['dimension group']:
+            uri_list = self.get_dimension_uris_notation(dim['notation'])
+            query = sparql_env.get_template('dimension_option_metadata.sparql').render(**{
+                'uri_list': uri_list,
+            })
+
+            result2 = {}
+
+            for row in list(self._execute(query)):
+                uri = row['uri']
+
+                list_entry = result2
+                if uri in list_entry:
+                    obj = list_entry[uri]
+                else:
+                    list_entry[uri] = obj = {}
+
+                for prop in row:
+                    if row[prop] is not None:
+                        obj[prop] = row[prop]
+
+            result[dim['notation']] = result2.values()
+
+        return result
+
+
     def get_dataset_details(self):
         #sparql_template = 'dataset_details.sparql'
         sparql_template = 'indicator_time_coverage.sparql'
@@ -336,6 +497,7 @@ class Cube(object):
                     'label': row['label'],
                     'notation': row['notation'],
                     'comment': row['comment'] or row['dimension'],
+                    'uri': row['uri'],
                 })
             return dict(rv)
 
@@ -443,13 +605,13 @@ class Cube(object):
                 # get years from merged_intervals
                 years = []
                 for option in options(res):
-                  # search in merged_intervals
-                  interval = filter(lambda interval:interval['uri'] == option, merged_intervals)
-                  if ( interval == [] ):
-                      # this was a year, not present in merged_intervals
-                      years.append(option)
-                  else:
-                      years.append(interval[0]['parent_year'])
+                    # search in merged_intervals
+                    interval = filter(lambda interval:interval['uri'] == option, merged_intervals)
+                    if ( interval == [] ):
+                        # this was a year, not present in merged_intervals
+                        years.append(option)
+                    else:
+                        years.append(interval[0]['parent_year'])
                 if common_uris is None:
                     common_uris = set(years)
                 else:
