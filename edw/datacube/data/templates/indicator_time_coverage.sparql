@@ -4,7 +4,7 @@ PREFIX dad-prop: <http://semantic.digital-agenda-data.eu/def/property/>
 PREFIX time: <http://www.w3.org/2006/time#>
 PREFIX interval: <http://reference.data.gov.uk/def/intervals/>
 
-SELECT DISTINCT ?indicator min(?year) as ?minYear max(?year) as ?maxYear
+SELECT DISTINCT ?indicator (min(?year) as ?minYear) (max(?year) as ?maxYear)
 WHERE {
   ?obs
     a qb:Observation ;
