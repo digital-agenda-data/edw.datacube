@@ -7,4 +7,4 @@ SELECT DISTINCT ?uri ?notation ?label WHERE {
   ?uri skos:prefLabel ?label; skos:notation ?notation 
   FILTER(LANG(?label) = "" || LANGMATCHES(LANG(?label), "en"))
 }
-LIMIT 1000
+
