@@ -261,63 +261,6 @@ class Cube(object):
         })
         return list(self._execute(query))[0]
 
-    @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
-    def get_all_unitmeasures(self):
-        query = sparql_env.get_template('unit.sparql').render()
-        res = list(self._execute(query))
-        result = {}
-        for row in res:
-            uri = row['uri']
-            if uri in result:
-                obj = result[uri]
-            else:
-                result[uri] = obj = {}
-
-            for prop in row:
-                if row[prop] is not None:
-                    obj[prop] = row[prop]
-
-        return result.values()
-
-    @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
-    def get_all_breakdowns(self):
-        query = sparql_env.get_template('breakdown.sparql').render()
-        res = list(self._execute(query))
-        result = {}
-        for row in res:
-            uri = row['uri']
-            if uri in result:
-                obj = result[uri]
-            else:
-                result[uri] = obj = {}
-
-            for prop in row:
-                if row[prop] is not None:
-                    obj[prop] = row[prop]
-
-        return result.values()
-
-    @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
-    def get_all_indicators(self):
-        query = sparql_env.get_template('indicator.sparql').render()
-        res = list(self._execute(query))
-        result = {}
-        for row in res:
-            uri = row['uri']
-            if uri in result:
-                obj = result[uri]
-            else:
-                result[uri] = obj = {}
-
-            for prop in row:
-                if row[prop] is not None:
-                    obj[prop] = row[prop]
-                    #import pytest;pytest.set_trace();
-
-        #result = [{k: row[k] for k in row if row[k] is not None} for row in res]
-        return result.values()
-
-
     def get_all_dimension_uris(self):
         query = sparql_env.get_template('dimension_values.sparql').render(**{
             'dataset': self.dataset,
@@ -678,8 +621,7 @@ class Cube(object):
     def get_dimension_codelist(self, dimension):
         query = sparql_env.get_template('codelist_values.sparql').render(**{
             'dataset': self.dataset,
-            'dimension_code': dimension,
-            'notations': self.notations,
+            'dimension': self.notations.lookup_dimension_uri(dimension)['uri'],
         })
         result = [row for row in self._execute(query)]
         return result
