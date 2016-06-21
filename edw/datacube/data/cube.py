@@ -62,27 +62,6 @@ def cacheKeyCube(method, self, *args, **kwargs):
 
 class NotationMap(object):
 
-    # overwritten in __init__
-    # this dictionary contains for each dimension values in its codelist
-    CODELISTS = [
-        ('breakdown', 'http://semantic.digital-agenda-data.eu/'
-                      'codelist/breakdown/'),
-        ('indicator', 'http://semantic.digital-agenda-data.eu/'
-                      'codelist/indicator/'),
-        ('breakdown-group', 'http://semantic.digital-agenda-data.eu/'
-                            'codelist/breakdown-group/'),
-        ('time-period', 'http://reference.data.gov.uk/id/gregorian-year/'),
-        ('flag', 'http://eurostat.linked-statistics.org/dic/flags#'),
-        ('indicator-group', 'http://semantic.digital-agenda-data.eu/'
-                            'codelist/indicator-group/'),
-        ('unit-measure', 'http://semantic.digital-agenda-data.eu/'
-                         'codelist/unit-measure/'),
-        ('ref-area', 'http://eurostat.linked-statistics.org/dic/geo#'),
-    ]
-
-    # overwritten in __init__
-    MEASURE = 'http://purl.org/linked-data/sdmx/2009/measure#obsValue'
-
     def __init__(self, cube):
         self.cube = cube
         self.DIMENSIONS = {}
@@ -286,61 +265,39 @@ class Cube(object):
         return result
 
 
-    def get_dimension_uris_notation(self, notation):
-        if not notation in self.get_group_dimensions():
+    def get_dimension_values(self, dimension_code):
+        if not dimension_code in self.get_group_dimensions():
             query = sparql_env.get_template('dimension_values.sparql').render(**{
                 'dataset': self.dataset,
-                'notation': notation,
+                'notation': dimension_code,
             })
             res = list(self._execute(query))
             return {row['values']: row for row in res}
         else:
             query = sparql_env.get_template('dimension_options.sparql').render(**{
                 'dataset': self.dataset,
-                'dimension_code': notation,
+                'dimension_code': dimension_code,
                 'group_dimensions': self.get_group_dimensions(),
                 'notations': self.notations,
             })
             res = list(self._execute(query))
             for row in res:
                 row['values'] = row['uri']
-                row['notation'] = notation
+                row['notation'] = dimension_code
 
             return {row['values']: row for row in res}
 
 
     def get_dimension_metadata(self):
-        dimensions = self.get_dimensions()
+        cube_dimensions = self.get_dimensions()
 
         result = {}
 
         # dimensions
-        for dim in dimensions['dimension']:
-            uri_list = self.get_dimension_uris_notation(dim['notation'])
-            query = sparql_env.get_template('dimension_option_metadata.sparql').render(**{
-                'uri_list': uri_list,
-            })
-
-            result2 = {}
-
-            for row in list(self._execute(query)):
-                uri = row['uri']
-
-                list_entry = result2
-                if uri in list_entry:
-                    obj = list_entry[uri]
-                else:
-                    list_entry[uri] = obj = {}
-
-                for prop in row:
-                    if row[prop] is not None:
-                        obj[prop] = row[prop]
-
-            result[dim['notation']] = result2.values()
-
-        # dimension groups
-        for dim in dimensions['dimension group']:
-            uri_list = self.get_dimension_uris_notation(dim['notation'])
+        dimensions = cube_dimensions['dimension'] + cube_dimensions['dimension group']
+        for dim in dimensions:
+            # TODO: include dimension_uri in get_dimensions
+            uri_list = self.get_dimension_values(dim['notation'])
             query = sparql_env.get_template('dimension_option_metadata.sparql').render(**{
                 'uri_list': uri_list,
             })
@@ -619,6 +576,7 @@ class Cube(object):
         #return rv
 
     def get_dimension_codelist(self, dimension):
+        # TODO: this is only used by the configurator and should be refactored to use get_dimension_metadata
         query = sparql_env.get_template('codelist_values.sparql').render(**{
             'dataset': self.dataset,
             'dimension': self.notations.lookup_dimension_uri(dimension)['uri'],
@@ -694,7 +652,6 @@ class Cube(object):
             for prop in row:
                  if row[prop] is not None:
                     obj[prop] = row[prop]
-            #import pytest;pytest.set_trace();
 
         #result = [{k: row[k] for k in row if row[k] is not None} for row in res]
         return result.values()
@@ -812,8 +769,7 @@ class Cube(object):
         n_filters = [x_filters, y_filters]
         return self.get_data_n(join_by, filters, n_filters)
 
-    def get_data_xyz(self, join_by, filters, x_filters, y_filters,
-                     z_filters):
+    def get_data_xyz(self, join_by, filters, x_filters, y_filters, z_filters):
         n_filters = [x_filters, y_filters, z_filters]
         return self.get_data_n(join_by, filters, n_filters)
 
@@ -899,7 +855,6 @@ class Cube(object):
             filtered_data.append(out)
         return filtered_data
 
-
     def get_revision(self):
         query = sparql_env.get_template('last_modified.sparql').render()
         try:
@@ -910,6 +865,7 @@ class Cube(object):
         return timestamp
 
     def dump(self, data_format=''):
+        #TODO: not used anymore
         query = sparql_env.get_template('dump.sparql').render(**{
             'dataset': self.dataset,
             'notations': self.notations

@@ -386,3 +386,11 @@ def test_dimension_codelist():
     res = cube.get_dimension_codelist('indicator')
     codes = [ (y['notation'], y['uri']) for y in res]
     assert ('i_iuse', 'http://semantic.digital-agenda-data.eu/codelist/indicator/i_iuse') in codes
+
+@sparql_test
+def test_patch_codelist():
+    cube = create_cube()
+    res = cube.get_dimension_metadata()
+    codes = [ (y['notation'], y['uri']) for y in res['ref-area']]
+    assert ('RO', 'http://eurostat.linked-statistics.org/dic/geo#RO') in codes
+    assert ('ASS', 'http://eurostat.linked-statistics.org/dic/geo#ASS') in codes
