@@ -240,31 +240,7 @@ class Cube(object):
         })
         return list(self._execute(query))[0]
 
-    def get_all_dimension_uris(self):
-        query = sparql_env.get_template('dimension_values.sparql').render(**{
-            'dataset': self.dataset,
-        })
-        res = list(self._execute(query))
-        result = {}
-
-        result = {row['values']: row for row in res}
-
-        for group_dimension in self.get_group_dimensions():
-            query = sparql_env.get_template('dimension_options.sparql').render(**{
-                'dataset': self.dataset,
-                'dimension_code': group_dimension,
-                'group_dimensions': self.get_group_dimensions(),
-                'notations': self.notations,
-            })
-            res = list(self._execute(query))
-            for row in res:
-                row['values'] = row['uri']
-                row['notation'] = group_dimension
-
-            result.update({row['values']: row for row in res})
-        return result
-
-
+    @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
     def get_dimension_values(self, dimension_code):
         if not dimension_code in self.get_group_dimensions():
             query = sparql_env.get_template('dimension_values.sparql').render(**{
@@ -288,37 +264,38 @@ class Cube(object):
             return {row['values']: row for row in res}
 
 
+    @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
     def get_dimension_metadata(self):
         cube_dimensions = self.get_dimensions()
-
         result = {}
-
-        # dimensions
         dimensions = cube_dimensions['dimension'] + cube_dimensions['dimension group']
         for dim in dimensions:
             # TODO: include dimension_uri in get_dimensions
             uri_list = self.get_dimension_values(dim['notation'])
+            # uri_list: [ {uri:{notation:dimension_code, uri:dimension_prop_uri, values:dimension_value_uri}}]
             query = sparql_env.get_template('dimension_option_metadata.sparql').render(**{
                 'uri_list': uri_list,
             })
 
             result2 = {}
-
             for row in list(self._execute(query)):
                 uri = row['uri']
-
-                list_entry = result2
-                if uri in list_entry:
-                    obj = list_entry[uri]
-                else:
-                    list_entry[uri] = obj = {}
+                if not uri in result2:
+                    result2[uri] = {}
 
                 for prop in row:
                     if row[prop] is not None:
-                        obj[prop] = row[prop]
+                        result2[uri][prop] = row[prop]
 
+            # Patch missing notations and labels
+            for row in result2.values():
+                if 'notation' not in row:
+                    row['notation'] = re.split('[#/]', row['uri'])[-1]
+                if 'label' not in row:
+                    row['label'] = row['notation']
+                if 'short_label' not in row:
+                    row['short_label'] = row['label']
             result[dim['notation']] = result2.values()
-
         return result
 
 

@@ -391,6 +391,21 @@ def test_dimension_codelist():
 def test_patch_codelist():
     cube = create_cube()
     res = cube.get_dimension_metadata()
-    codes = [ (y['notation'], y['uri']) for y in res['ref-area']]
-    assert ('RO', 'http://eurostat.linked-statistics.org/dic/geo#RO') in codes
-    assert ('ASS', 'http://eurostat.linked-statistics.org/dic/geo#ASS') in codes
+    codes = [ (y['notation'], y.get('label'), y['uri']) for y in res['breakdown-group']]
+    assert ('byage6classes', 'Age (6 groups)', 'http://semantic.digital-agenda-data.eu/codelist/breakdown-group/byage6classes') in codes
+
+    codes = [ (y['notation'], y.get('label'), y['uri']) for y in res['time-period']]
+    assert ('2009-Q3', 'Quarter:2009-Q3', 'http://reference.data.gov.uk/id/gregorian-quarter/2009-Q3') in codes
+
+    codes = [ (y['notation'], y.get('label'), y['uri']) for y in res['ref-area']]
+    assert ('RO', 'Romania', 'http://eurostat.linked-statistics.org/dic/geo#RO') in codes
+    assert ('ASS', 'ASS', 'http://eurostat.linked-statistics.org/dic/geo#ASS') in codes
+
+@sparql_test
+def test_get_dimension_values():
+    cube = create_cube()
+    res = cube.get_dimension_values('ref-area')
+    assert 'http://eurostat.linked-statistics.org/dic/geo#RO' in res
+    assert 'http://eurostat.linked-statistics.org/dic/geo#ASS' in res
+
+

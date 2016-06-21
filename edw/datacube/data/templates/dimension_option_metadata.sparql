@@ -10,7 +10,8 @@ SELECT DISTINCT ?uri ?notation ?definition ?label ?short_label ?note
 
 WHERE {
 
-  { ?uri skos:notation ?notation }
+  {?s ?p ?uri}
+  UNION { ?uri skos:notation ?notation }
   UNION { ?uri skos:prefLabel ?label }
   UNION { ?uri skos:altLabel ?short_label }
   UNION { ?uri skos:note ?note }
@@ -38,4 +39,4 @@ FILTER (
 )
 
 }
-LIMIT 50000
+
