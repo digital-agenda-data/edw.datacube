@@ -85,7 +85,6 @@ class NotationMap(object):
 
     def __init__(self, cube):
         self.cube = cube
-        self.CODELISTS = self.build_codelists()
         self.DIMENSIONS = {}
         self.FQ_GROUPERS = {}
         self.GROUPERS = {}
@@ -103,24 +102,26 @@ class NotationMap(object):
             if item['type_label'] == 'measure':
                 self.MEASURE = item['dimension']
 
+        self.CODELISTS = self.build_codelists()
+
     @eeacache(cacheKey, dependencies=['edw.datacube'])
     def build_codelists(self, template='codelists.sparql'):
         query = sparql_env.get_template(template).render(
-            dataset=self.cube.dataset
+            dimensions=self.get_all_dimensions_uri()
         )
         rows = self.cube._execute(query)
-        return [(re.split('[#/]', row['dimension'])[-1], row['uri']) for row in rows]
+        return [(self.lookup_dimension_code(row['dimension']), row['uri']) for row in rows]
 
     def update(self):
         t0 = time.time()
         logger.info('loading notation cache')
         query = sparql_env.get_template('notations.sparql').render(**{
-            'dataset': self.cube.dataset,
+            'dimensions': self.get_all_dimensions_uri()
         })
         by_notation = defaultdict(dict)
         by_uri = {}
         for row in self.cube._execute(query):
-            namespace = re.split('[#/]', row['dimension'])[-1]
+            namespace = self.lookup_dimension_code(row['dimension'])
             notation = row['notation'].lower()
             if by_notation[namespace].get(notation):
                 # notation already exists, add a hash
@@ -138,6 +139,15 @@ class NotationMap(object):
     def get(self):
         cache_key = (self.cube.endpoint, self.cube.dataset)
         return data_cache.get(cache_key, self.update)
+
+    def get_all_dimensions_uri(self):
+        return self.DIMENSIONS.values()
+
+    def lookup_dimension_code(self, dimension_uri):
+        for key,value in self.DIMENSIONS.items():
+            if value == dimension_uri:
+                return key
+        return None
 
     def lookup_dimension_uri(self, dimension_code):
         return {
@@ -475,24 +485,54 @@ class Cube(object):
         types = dict([
             ('http://purl.org/linked-data/cube#dimension', 'dimension'),
             ('http://purl.org/linked-data/cube#attribute', 'attribute'),
-            ('http://semantic.digital-agenda-data.eu/def/property/dimension-group', 'dimension group'),
             ('http://purl.org/linked-data/cube#measure', 'measure'),
         ])
         row['type_label'] = types.get(row['dimension_type'], 'dimension')
 
     @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
     def get_dimensions(self, flat=False):
+        query2 = sparql_env.get_template('group_dimensions.sparql').render(**{
+            'dataset': self.dataset,
+        })
+        groups = {}
+        for row in self._execute(query2):
+            groups[row['dimension']] = {
+                'group_notation': row['group_notation'],
+                'group_dimension': row['group_dimension']
+            }
+        # Get info for group dimensions
+        group_dimensions = {}
+        if groups:
+            query3 = sparql_env.get_template('dimension_info.sparql').render(**{
+                'uri_list': [uri['group_dimension'] for uri in groups.values()]
+            })
+            for row in self._execute(query3):
+                row['type_label'] = 'dimension group'
+                row['group_notation'] = None
+                group_dimensions[row['dimension']] = row
+
+        # fix missing notations add group notations
         query = sparql_env.get_template('dimensions.sparql').render(**{
             'dataset': self.dataset,
         })
         result = list(self._execute(query))
+        dimensions = []
         for row in result:
             self.fix_notations(row)
+            group = groups.get(row['dimension'], None)
+            if group:
+                row['group_notation'] = group['group_notation']
+                # add group dimension info
+                dimensions.append(group_dimensions[group['group_dimension']])
+            else:
+                row['group_notation'] = None
+            dimensions.append(row)
+
         if flat:
-            return result
+            return dimensions
         else:
             rv = defaultdict(list)
-            for row in result:
+            for row in dimensions:
                 rv[row['type_label']].append({
                     'label': row['label'],
                     'notation': row['notation'],
@@ -949,7 +989,8 @@ class Cube(object):
         """
 
         query = sparql_env.get_template(template).render(**{
-            'dataset': self.dataset
+            'dataset': self.dataset,
+            'dimensions': self.notations.DIMENSIONS
         })
         data = urllib.urlencode({
             'query': query,

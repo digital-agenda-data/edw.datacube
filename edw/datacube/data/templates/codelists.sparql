@@ -2,16 +2,11 @@ PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 
 SELECT DISTINCT ?uri ?dimension  WHERE {
-
-    {{ dataset|uri_n3 }} qb:structure ?structure .
-
-    ?structure qb:component [?dimension_type ?dimension] .
-
     FILTER (
-      ?dimension_type = <http://purl.org/linked-data/cube#dimension> ||
-      ?dimension_type = <http://purl.org/linked-data/cube#attribute> ||
-      ?dimension_type = <http://purl.org/linked-data/cube#measure> ||
-      ?dimension_type = <http://semantic.digital-agenda-data.eu/def/property/dimension-group>
+    {%- for dimension in dimensions %}
+       ?dimension = {{ dimension|uri_n3 }}
+       {%- if not loop.last %} || {% endif %}
+    {%- endfor %}
     )
     OPTIONAL {
       ?dimension qb:codeList ?uri

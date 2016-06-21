@@ -9,7 +9,7 @@ def test_all_datasets_query_returns_the_dataset():
     dataset = {
         'uri': ('http://semantic.digital-agenda-data.eu/'
                 'dataset/digital-agenda-scoreboard-key-indicators'),
-        'title': 'Digital Agenda Scoreboard Dataset',
+        'title': 'Digital Agenda Key Indicators',
     }
     assert dataset in res
 
@@ -18,7 +18,7 @@ def test_all_datasets_query_returns_the_dataset():
 def test_dataset_metadata():
     cube = create_cube()
     res = cube.get_dataset_metadata(cube.dataset)
-    assert res['title'] == "Digital Agenda Scoreboard Dataset"
+    assert res['title'] == "Digital Agenda Key Indicators"
     #assert "You can also browse the data" in res['description']
     #assert res['license'].startswith('http://')
 
@@ -30,6 +30,18 @@ def test_dataset_dimensions_metadata():
             'label': "Country",
             'comment': ANY,
             'uri': "http://eurostat.linked-statistics.org/dic/geo"} in res['dimension']
+    assert {'notation': 'breakdown-group',
+            'label': "Breakdown group",
+            'comment': ANY,
+            'uri': "http://semantic.digital-agenda-data.eu/codelist/breakdown-group"} in res['dimension group']
+    assert {'notation': 'flag',
+            'label': "Flag",
+            'comment': ANY,
+            'uri': "http://eurostat.linked-statistics.org/dic/flags"} in res['attribute']
+    assert {'notation': 'obsValue',
+            'label': "Observation",
+            'comment': ANY,
+            'uri': None} in res['measure']
     notations = lambda type_label: [d['notation'] for d in res[type_label]]
     assert sorted(res) == ['attribute', 'dimension',
                            'dimension group', 'measure']
