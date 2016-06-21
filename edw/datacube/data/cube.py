@@ -241,27 +241,16 @@ class Cube(object):
         return list(self._execute(query))[0]
 
     @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
-    def get_dimension_values(self, dimension_code):
-        if not dimension_code in self.get_group_dimensions():
-            query = sparql_env.get_template('dimension_values.sparql').render(**{
-                'dataset': self.dataset,
-                'notation': dimension_code,
-            })
-            res = list(self._execute(query))
-            return {row['values']: row for row in res}
-        else:
-            query = sparql_env.get_template('dimension_options.sparql').render(**{
-                'dataset': self.dataset,
-                'dimension_code': dimension_code,
-                'group_dimensions': self.get_group_dimensions(),
-                'notations': self.notations,
-            })
-            res = list(self._execute(query))
-            for row in res:
-                row['values'] = row['uri']
-                row['notation'] = dimension_code
-
-            return {row['values']: row for row in res}
+    def get_dimension_options_raw(self, dimension_code):
+        # Similar to get_dimension_options, but without filters and special handling of time dimension
+        query = sparql_env.get_template('dimension_options.sparql').render(**{
+            'dataset': self.dataset,
+            'dimension_code': dimension_code,
+            'group_dimensions': self.get_group_dimensions(),
+            'notations': self.notations,
+        })
+        res = list(self._execute(query))
+        return [row['uri'] for row in res]
 
 
     @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
@@ -271,7 +260,7 @@ class Cube(object):
         dimensions = cube_dimensions['dimension'] + cube_dimensions['dimension group']
         for dim in dimensions:
             # TODO: include dimension_uri in get_dimensions
-            uri_list = self.get_dimension_values(dim['notation'])
+            uri_list = self.get_dimension_options_raw(dim['notation'])
             # uri_list: [ {uri:{notation:dimension_code, uri:dimension_prop_uri, values:dimension_value_uri}}]
             query = sparql_env.get_template('dimension_option_metadata.sparql').render(**{
                 'uri_list': uri_list,
@@ -429,6 +418,7 @@ class Cube(object):
         cache_key = (self.endpoint, self.dataset, 'get_group_dimensions')
         return data_cache.get(cache_key, self.load_group_dimensions)
 
+    @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
     def get_dimension_options(self, dimension, filters=[]):
         # fake an n-dimensional query, with a single dimension, that has no
         # specific filters

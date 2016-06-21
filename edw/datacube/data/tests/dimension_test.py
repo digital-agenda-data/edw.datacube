@@ -402,10 +402,11 @@ def test_patch_codelist():
     assert ('ASS', 'ASS', 'http://eurostat.linked-statistics.org/dic/geo#ASS') in codes
 
 @sparql_test
-def test_get_dimension_values():
+def test_get_dimension_options_raw():
     cube = create_cube()
-    res = cube.get_dimension_values('ref-area')
+    res = cube.get_dimension_options_raw('ref-area')
     assert 'http://eurostat.linked-statistics.org/dic/geo#RO' in res
     assert 'http://eurostat.linked-statistics.org/dic/geo#ASS' in res
-
+    res = cube.get_dimension_options_raw('time-period')
+    assert 'http://reference.data.gov.uk/id/gregorian-quarter/2009-Q3' in res
 
