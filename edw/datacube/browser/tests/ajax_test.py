@@ -99,20 +99,6 @@ def test_dimension_single_filter_passed_on_to_query(mock_cube):
     cube_call = mock_cube.get_dimension_options.mock_calls[0]
     assert cube_call == call('ref-area', [('time-period', '2002')])
 
-
-def test_dimension_labels_passed_on_to_query(mock_cube):
-    mock_cube.get_dimension_labels.return_value = [
-        {'label': 'indicator one', 'short_label': 'ind one'},
-    ]
-    ajax(mock_cube, 'dimension_labels', {
-        'dimension': 'unit-measure',
-        'value': 'pc_ind',
-        'rev': '123',
-    })
-    cube_call = mock_cube.get_dimension_labels.mock_calls[0]
-    assert cube_call == call('unit-measure', 'pc_ind')
-
-
 def test_dimension_filters_passed_on_to_query(mock_cube):
     mock_cube.get_dimension_options.return_value = {}
     ajax(mock_cube, 'dimension_options', {

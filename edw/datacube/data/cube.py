@@ -60,6 +60,7 @@ def cacheKeyCube(method, self, *args, **kwargs):
     """
     return (self.endpoint, self.dataset, args, kwargs)
 
+
 class NotationMap(object):
 
     def __init__(self, cube):
@@ -327,22 +328,6 @@ class Cube(object):
 
         return sorted(res, key=_sort_key)
 
-    def get_dimension_labels(self, dimension, value):
-        query = sparql_env.get_template('dimension_label.sparql').render(**{
-            'dataset': self.dataset,
-            'dimension': dimension,
-            'value': value,
-            'group_dimensions': self.get_group_dimensions(),
-            'notations': self.notations,
-        })
-        rv = list(self._execute(query))
-        if not rv:
-            return [{'notation': value, 'label': value, 'short_label': None}]
-        else:
-            for x in rv:
-                x.update({'notation': value})
-            return rv
-
     def fix_notations(self, row):
         if not row['notation']:
             row['notation'] = re.split('[#/]', row['dimension'])[-1]
@@ -388,12 +373,13 @@ class Cube(object):
             group = groups.get(row['dimension'], None)
             if group:
                 row['group_notation'] = group['group_notation']
+                row['group_dimension'] = group['group_dimension']
                 # add group dimension info
                 dimensions.append(group_dimensions[group['group_dimension']])
             else:
                 row['group_notation'] = None
+                row['group_dimension'] = None
             dimensions.append(row)
-
         if flat:
             return dimensions
         else:

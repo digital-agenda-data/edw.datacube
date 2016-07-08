@@ -12,7 +12,6 @@ WHERE {
   ?observation
     a qb:Observation ;
     qb:dataSet {{ dataset|uri_n3 }} ;
-    {# sdmx-measure:obsValue ?value . #}
     {{ obs_uri|uri_n3 }} ?value .
 
 {%- for f_dimension_code, f_option_code in filters %}

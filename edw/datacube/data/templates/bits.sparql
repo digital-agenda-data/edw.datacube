@@ -20,7 +20,6 @@
 
   {%- else %}
   ?{{ observation }}
-    {# dad-prop:{{ dimension_code }} {{ option_uri|uri_n3 }} . #}
     {{ dimension_uri|uri_n3 }} {{ option_uri|uri_n3 }} .
 
   {%- endif %}
@@ -38,7 +37,6 @@
   {%- set dimension_uri = notations.lookup_dimension_uri(dimension_code)['uri'] %}
 
   ?{{ observation }}
-    {# dad-prop:{{ dimension_code }} ?{{ prefix }}_option . #}
     {{ dimension_uri|uri_n3 }} ?{{ prefix }}_option .
   ?{{ prefix }}_option
     skos:notation ?{{ prefix }} .

@@ -110,14 +110,6 @@
     />
 
   <browser:page
-    name="dimension_labels"
-    for="..interfaces.IDataCube"
-    class=".query.AjaxDataView"
-    attribute="dimension_labels"
-    permission="zope2.View"
-    />
-
-  <browser:page
     name="dimension_codelist"
     for="..interfaces.IDataCube"
     class=".query.AjaxDataView"
