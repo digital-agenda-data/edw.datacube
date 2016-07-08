@@ -15,12 +15,12 @@ SELECT DISTINCT ?uri WHERE {
                     f_dimension_code, f_option_code) }}
 {%- endfor %}
 
+{%- set dimension_uri = notations.lookup_dimension_uri(dimension_code) %}
 {% if dimension_code in group_dimensions %}
-    {%- set groupee_uri = notations.lookup_dimension_uri_by_grouper(dimension_code)['uri'] %}
+    {%- set groupee_uri = notations.lookup_dimension_uri_by_grouper_uri(dimension_uri) %}
     ?observation {{ groupee_uri|uri_n3 }} ?option .
     ?option dad-prop:membership [ dad-prop:member-of ?uri ] .
 {%- else %}
-    {%- set dimension_uri = notations.lookup_dimension_uri(dimension_code)['uri'] %}
     ?observation {{ dimension_uri|uri_n3 }} ?uri.
     ?observation {{ obs_uri|uri_n3 }} ?value .
 {% endif %}

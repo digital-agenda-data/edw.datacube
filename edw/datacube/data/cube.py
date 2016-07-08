@@ -60,6 +60,19 @@ def cacheKeyCube(method, self, *args, **kwargs):
     """
     return (self.endpoint, self.dataset, args, kwargs)
 
+class CubeMetadata(object):
+
+    def __init__(self, cube):
+        self.cube = cube
+
+    def update(self):
+        t0 = time.time()
+        logger.info('loading cube metadata')
+        return {}
+
+    def get(self):
+        cache_key = (self.cube.endpoint, self.cube.dataset)
+        return data_cache.get(cache_key, self.update)
 
 class NotationMap(object):
 
@@ -72,13 +85,10 @@ class NotationMap(object):
         for item in self.cube.get_dimensions(flat=True):
             code = item['notation']
             uri = item['dimension']
-            if code is None:
-                code = re.split('[#/]', uri)[-1]
             self.DIMENSIONS.update({code: uri})
-            group_notation = item['group_notation']
-            if group_notation:
-                self.GROUPERS[code] = group_notation
-                self.FQ_GROUPERS[group_notation] = uri
+            if item['group_notation']:
+                self.GROUPERS[code] = item['group_notation']
+                self.FQ_GROUPERS[item['group_dimension']] = uri
             if item['type_label'] == 'measure':
                 self.MEASURE = item['dimension']
 
@@ -130,18 +140,10 @@ class NotationMap(object):
         return None
 
     def lookup_dimension_uri(self, dimension_code):
-        return {
-            'uri': dict(self.DIMENSIONS).get(dimension_code),
-            'namespace': dimension_code,
-            'notation': None
-        }
+        return self.DIMENSIONS.get(dimension_code)
 
-    def lookup_dimension_uri_by_grouper(self, grouper_dimension_code):
-        return {
-            'uri': dict(self.FQ_GROUPERS).get(grouper_dimension_code),
-            'namespace': grouper_dimension_code,
-            'notation': None
-        }
+    def lookup_dimension_uri_by_grouper_uri(self, grouper_dimension):
+        return self.FQ_GROUPERS.get(grouper_dimension)
 
     def lookup_measure_uri(self):
         return self.MEASURE
@@ -528,11 +530,11 @@ class Cube(object):
         #rv.sort(key=lambda item: int(item.pop('order') or '0'))
         #return rv
 
-    def get_dimension_codelist(self, dimension):
+    def get_dimension_codelist(self, dimension_code):
         # TODO: this is only used by the configurator and should be refactored to use get_dimension_metadata
         query = sparql_env.get_template('codelist_values.sparql').render(**{
             'dataset': self.dataset,
-            'dimension': self.notations.lookup_dimension_uri(dimension)['uri'],
+            'dimension': self.notations.lookup_dimension_uri(dimension_code),
         })
         result = [row for row in self._execute(query)]
         return result
