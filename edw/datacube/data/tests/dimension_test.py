@@ -2,12 +2,6 @@ from .base import sparql_test, create_cube
 from edw.datacube.data.cube import Cube
 
 
-@sparql_test
-def test_get_group_dimensions():
-    cube = create_cube()
-    res = cube.get_group_dimensions()
-    assert res == ['http://semantic.digital-agenda-data.eu/def/property/breakdown-group', 'http://semantic.digital-agenda-data.eu/def/property/indicator-group']
-
 # TODO: refactor label tests
 #@sparql_test
 #def test_unit_measure_labels_query():
@@ -227,26 +221,6 @@ def test_get_indicator_source_metadata():
     assert res['source_url'] == (
         "http://ec.europa.eu/eurostat/web/information-society/data/comprehensive-database")
 
-#@sparql_test
-#def test_dump_has_output():
-#    cube = create_cube()
-#    res = cube.dump()
-#    assert(res.next())
-#
-#@sparql_test
-#def test_dump_row_fields():
-#    cube = create_cube()
-#    res = cube.dump()
-#    expected = set([
-#        'unit_measure',
-#        'indicator',
-#        'time_period',
-#        'value',
-#        'ref_area',
-#        'breakdown'])
-#    assert expected.difference(set(res.next().keys())) == set([])
-
-
 @sparql_test
 def test_get_labels():
     import sparql
@@ -270,19 +244,19 @@ def test_indicator_groups_are_sorted():
         'security-privacy', 'ict-sector', 'research-and-development',
         'back', 'discontinued']
 
-@sparql_test
-def test_dimension_options_sort_bug():
-    #hardcoded endpoint and uri
-    cube = Cube('http://test-virtuoso.digital-agenda-data.eu/sparql',
-        'http://semantic.digital-agenda-data.eu/dataset/CNECT_Dashboard')
-    res = cube.get_dimension_options('breakdown', [
-        ('breakdown-group', 'byimplementation+status'),
-        ('indicator', 'DAE_MS_Actions'),
-        ('time-period', '2013'),
-        ('unit-measure', 'nbr_actions')
-    ])
-    #should not fail with AttributeError: 'dict' object has no attribute 'sort'
-    assert res == {}
+#@sparql_test
+#def test_dimension_options_sort_bug():
+#    # hardcoded endpoint and uri
+#    cube = Cube('http://test-virtuoso.digital-agenda-data.eu/sparql',
+#        'http://semantic.digital-agenda-data.eu/dataset/CNECT_Dashboard')
+#    res = cube.get_dimension_options('breakdown', [
+#        ('breakdown-group', 'byImplementationStatus'),
+#        ('indicator', 'DAE_MS_Actions'),
+#        ('time-period', '2013'),
+#        ('unit-measure', 'nbr_actions')
+#    ])
+#    # should not fail with AttributeError: 'dict' object has no attribute 'sort'
+#    assert res == {}
 
 
 @sparql_test
@@ -325,8 +299,8 @@ def test_dimension_options_xy_none_common():
           ('unit-measure', 'pc_pop')
          ],
          [
-          ('indicator', 'TOTAL_POPHH'),
-          ('breakdown', 'mbb_ltecov'),
+          ('indicator', 'mbb_ltecov'),
+          ('breakdown', 'TOTAL_POPHH'),
           ('unit-measure', 'pc_hh_all')
          ]
     );
@@ -403,9 +377,9 @@ def test_patch_codelist():
 @sparql_test
 def test_get_dimension_options_raw():
     cube = create_cube()
-    res = cube.get_dimension_options_raw('ref-area')
+    res = cube.get_dimension_options_raw('http://semantic.digital-agenda-data.eu/def/property/ref-area')
     assert 'http://eurostat.linked-statistics.org/dic/geo#RO' in res
     assert 'http://eurostat.linked-statistics.org/dic/geo#ASS' in res
-    res = cube.get_dimension_options_raw('time-period')
+    res = cube.get_dimension_options_raw('http://semantic.digital-agenda-data.eu/def/property/time-period')
     assert 'http://reference.data.gov.uk/id/gregorian-quarter/2009-Q3' in res
 

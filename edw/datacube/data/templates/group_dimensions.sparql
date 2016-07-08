@@ -1,15 +1,12 @@
 PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX dad-prop: <http://semantic.digital-agenda-data.eu/def/property/>
-SELECT DISTINCT ?dimension ?group_dimension ?group_notation WHERE {
+SELECT DISTINCT ?dimension ?group_dimension WHERE {
 
   ?observation ?dimension ?value .
 
   ?dimension
     dad-prop:grouped-using ?group_dimension .
-
-  ?group_dimension
-    skos:notation ?group_notation .
 
   FILTER EXISTS {
     ?observation qb:dataSet {{ dataset|uri_n3 }}

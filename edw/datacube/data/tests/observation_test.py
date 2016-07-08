@@ -158,15 +158,15 @@ def test_get_observations_cp():
                 ('time-period', '2013')
               ]
     whitelist=[
-        {'indicator-group': 'internet-usage', 'indicator': 'h_iacc', 'breakdown': 'hh_total', 'unit-measure': 'pc_hh'},
-        {'indicator-group': 'internet-usage', 'indicator': 'i_ia12ave', 'breakdown': 'y16_24', 'unit-measure': 'ia12ave'},
-        {'indicator-group': 'internet-usage', 'indicator': 'i_ia12ave', 'breakdown': 'y25_54', 'unit-measure': 'ia12ave'},
-        {'indicator-group': 'internet-usage', 'indicator': 'i_ia12ave', 'breakdown': 'y55_74', 'unit-measure': 'ia12ave'},
-        {'indicator-group': 'internet-usage', 'indicator': 'i_iday', 'breakdown': 'ind_total', 'unit-measure': 'pc_ind'},
-        {'indicator-group': 'internet-usage', 'indicator': 'i_iumc', 'breakdown': 'ind_total', 'unit-measure': 'pc_ind'},
-        {'indicator-group': 'internet-usage', 'indicator': 'i_iuse', 'breakdown': 'ind_total', 'unit-measure': 'pc_ind'},
+        {'indicator-group': 'internet-usage', 'indicator': 'h_iacc', 'breakdown': 'HH_total', 'unit-measure': 'pc_hh'},
+        {'indicator-group': 'internet-usage', 'indicator': 'i_ia12ave', 'breakdown': 'Y16_24', 'unit-measure': 'ia12ave'},
+        {'indicator-group': 'internet-usage', 'indicator': 'i_ia12ave', 'breakdown': 'Y25_54', 'unit-measure': 'ia12ave'},
+        {'indicator-group': 'internet-usage', 'indicator': 'i_ia12ave', 'breakdown': 'Y55_74', 'unit-measure': 'ia12ave'},
+        {'indicator-group': 'internet-usage', 'indicator': 'i_iday', 'breakdown': 'IND_TOTAL', 'unit-measure': 'pc_ind'},
+        {'indicator-group': 'internet-usage', 'indicator': 'i_iumc', 'breakdown': 'IND_TOTAL', 'unit-measure': 'pc_ind'},
+        {'indicator-group': 'internet-usage', 'indicator': 'i_iuse', 'breakdown': 'IND_TOTAL', 'unit-measure': 'pc_ind'},
         {'indicator-group': 'internet-usage', 'indicator': 'i_iuse', 'breakdown': 'rf_ge1', 'unit-measure': 'pc_ind'},
-        {'indicator-group': 'internet-usage', 'indicator': 'i_iux', 'breakdown': 'ind_total', 'unit-measure': 'pc_ind'}
+        {'indicator-group': 'internet-usage', 'indicator': 'i_iux', 'breakdown': 'IND_TOTAL', 'unit-measure': 'pc_ind'}
     ]
     result = list(cube.get_observations_cp(filters, whitelist))
     assert len(result) == 9

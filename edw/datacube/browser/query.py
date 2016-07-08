@@ -176,15 +176,6 @@ class AjaxDataView(BrowserView):
             rows.append(option)
         return self.jsonify({'options': rows})
 
-
-    @json_response
-    @eeacache(cacheKey, dependencies=['edw.datacube'])
-    def dimension_value_metadata(self):
-        dimension = self.request.form['dimension']
-        value = self.request.form['value']
-        res = self.cube.get_dimension_option_metadata(dimension, value)
-        return self.jsonify(res)
-
     def country_value(self, uid, datapoints):
         """ Get value for given uid
         """
@@ -576,60 +567,6 @@ class AjaxDataView(BrowserView):
                                           y_filters=y_filters,
                                           z_filters=z_filters))
         return self.jsonify({'datapoints': rows})
-
-    def dump_csv(self, response, dialect=csv.excel):
-        in_headers = [
-            'breakdown',
-            'indicator',
-            'ref_area',
-            'time_period',
-            'unit_measure',
-            'value']
-        out_headers = [
-            'indicator',
-            'breakdown',
-            'unit_measure',
-            'time_period',
-            'ref_area',
-            'value']
-        writer = csv.DictWriter(response, out_headers, dialect=dialect, restval='')
-        writer.writeheader()
-        data = StringIO(self.cube.dump(data_format="text/csv"))
-        data.readline() #skip header
-        reader = csv.DictReader(data, in_headers, restval='')
-        for row in reader:
-            encoded_row = {}
-            for k,v in row.iteritems():
-                encoded_row[k] = unicode(v).encode('utf-8')
-            writer.writerow(encoded_row)
-        return response
-
-    def download_csv(self):
-        response = self.request.response
-        response.setHeader('Content-type', 'text/csv; charset=utf-8')
-        filename = self.context.getId() + '.csv'
-        response.setHeader('Content-Disposition',
-                           'attachment;filename=%s' % filename)
-        return self.dump_csv(response)
-
-    def download_tsv(self):
-        response = self.request.response
-        response.setHeader('Content-type', 'text/tab-separated-values; charset=utf-8')
-        filename = self.context.getId() + '.tsv'
-        response.setHeader('Content-Disposition',
-                           'attachment;filename=%s' % filename)
-        return self.dump_csv(response, dialect=csv.excel_tab)
-
-    def dump_rdf(self):
-        response = self.request.response
-        response.setHeader('Content-type', 'application/rdf+xml; charset=utf-8')
-        filename = self.context.getId() + '.rdf'
-        response.setHeader('Content-Disposition',
-                           'attachment;filename=%s' % filename)
-        response.write('')
-        data = self.cube.dump(data_format='application/rdf+xml')
-        response.write(data)
-        return response
 
     def download_codelists(self):
         response = self.request.response

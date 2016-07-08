@@ -18,43 +18,6 @@ def mock_cube(request):
     from edw.datacube.data.cube import Cube
     return MagicMock(spec=Cube)
 
-
-def test_dump_csv_fields_order(mock_cube):
-    dump = ('header\n'
-           'breakdown1,indicator1,ref-area1,time-period1,unit-measure1,value1\n')
-    mock_cube.dump.return_value = dump
-
-    datasource = Mock(get_cube=Mock(return_value=mock_cube))
-    datasource.getId.return_value = 'testcube'
-    view = AjaxDataView(datasource, Mock(form={}))
-    import csv
-    stream = Mock()
-    res = view.dump_csv(stream, csv.excel)
-    header_write_call = res.write.mock_calls[0]
-    row_write_call = res.write.mock_calls[1]
-    assert header_write_call == call('indicator,breakdown,unit_measure,' \
-                                     'time_period,ref_area,value\r\n')
-    assert row_write_call == call(
-           'indicator1,breakdown1,unit-measure1,time-period1,ref-area1,value1\r\n')
-
-
-def test_dump_csv_response_content_type(mock_cube):
-    dump = [ { 'indicator': 'i',
-               'breakdown': u'b',
-               'unit_measure': 'u-m',
-               'time_period': 't',
-               'ref_area': 'r',
-               'value': 0.5 } ]
-    mock_cube.dump.return_value = iter(dump)
-
-    datasource = Mock(get_cube=Mock(return_value=mock_cube))
-    datasource.getId.return_value = 'testcube'
-    view = AjaxDataView(datasource, Mock(form={}))
-    res = view.download_csv()
-    setHeader_call = res.setHeader.mock_calls[0]
-    assert setHeader_call == call('Content-type', 'text/csv; charset=utf-8')
-
-
 def test_all_datasets(mock_cube):
     datasets = [
         {'uri': 'dataset-one', 'title': 'One'},

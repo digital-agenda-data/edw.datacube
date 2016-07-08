@@ -8,25 +8,24 @@ PREFIX interval: <http://reference.data.gov.uk/def/intervals/>
 PREFIX time: <http://www.w3.org/2006/time#>
 SELECT DISTINCT ?uri WHERE {
 
-{%- set obs_uri = notations.lookup_measure_uri() %}
+{%- set measure_uri = metadata.lookup_measure_uri() %}
 
 {%- for f_dimension_code, f_option_code in filters %}
     {{ one_filter('observation', 'filter_%d' % loop.index,
                     f_dimension_code, f_option_code) }}
 {%- endfor %}
 
-{%- set dimension_uri = notations.lookup_dimension_uri(dimension_code) %}
-{% if dimension_uri in group_dimensions %}
-    {%- set groupee_uri = notations.lookup_dimension_uri_by_grouper_uri(dimension_uri) %}
+{% if metadata.is_group_dimension(dimension_uri) %}
+    {%- set groupee_uri = metadata.lookup_dimension_uri_by_grouper_uri(dimension_uri) %}
     ?observation {{ groupee_uri|uri_n3 }} ?option .
     ?option dad-prop:membership [ dad-prop:member-of ?uri ] .
 {%- else %}
     ?observation {{ dimension_uri|uri_n3 }} ?uri.
-    ?observation {{ obs_uri|uri_n3 }} ?value .
 {% endif %}
+    ?observation {{ measure_uri|uri_n3 }} ?value .
 
   FILTER EXISTS {
       ?observation qb:dataSet {{ dataset|uri_n3 }} .
   }
 }
-LIMIT 1000
+LIMIT 10000
