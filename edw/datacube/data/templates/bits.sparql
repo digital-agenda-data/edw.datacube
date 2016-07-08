@@ -2,7 +2,7 @@
  {%- if option_code %}
   {%- set option_uri = notations.lookup_notation(dimension_code, option_code)['uri'] %}
   {%- set dimension_uri = notations.lookup_dimension_uri(dimension_code) %}
-  {%- if dimension_code in group_dimensions %}
+  {%- if dimension_uri in group_dimensions %}
     {%- set grouper_uri = notations.lookup_dimension_uri_by_grouper_uri(dimension_uri) %}
     ?{{ observation }} {{ grouper_uri|uri_n3 }} [
       dad-prop:membership [ dad-prop:member-of {{ option_uri|uri_n3 }} ]

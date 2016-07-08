@@ -6,7 +6,7 @@ from edw.datacube.data.cube import Cube
 def test_get_group_dimensions():
     cube = create_cube()
     res = cube.get_group_dimensions()
-    assert res == ['breakdown-group', 'indicator-group']
+    assert res == ['http://semantic.digital-agenda-data.eu/def/property/breakdown-group', 'http://semantic.digital-agenda-data.eu/def/property/indicator-group']
 
 # TODO: refactor label tests
 #@sparql_test

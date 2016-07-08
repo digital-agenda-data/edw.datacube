@@ -400,7 +400,7 @@ class Cube(object):
         query = sparql_env.get_template('group_dimensions.sparql').render(**{
             'dataset': self.dataset,
         })
-        return sorted([r['group_notation'] for r in self._execute(query)])
+        return sorted([r['group_dimension'] for r in self._execute(query)])
 
     def get_group_dimensions(self):
         cache_key = (self.endpoint, self.dataset, 'get_group_dimensions')
