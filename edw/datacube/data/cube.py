@@ -51,12 +51,12 @@ class DataCache(object):
 data_cache = DataCache()
 
 def cacheKey(method, self, *args, **kwargs):
-    """ Generate unique cache id
+    """ Generate unique cache id when self has property self.cube
     """
     return (self.cube.endpoint, self.cube.dataset)
 
 def cacheKeyCube(method, self, *args, **kwargs):
-    """ Generate unique cache id
+    """ Generate unique cache id when self is cube
     """
     return (self.endpoint, self.dataset, args, kwargs)
 

@@ -98,6 +98,7 @@ class AjaxDataView(BrowserView):
         res = self.cube.get_dimension_metadata()
         return self.jsonify(res)
 
+    @json_response
     @eeacache(cacheKey, dependencies=['edw.datacube'])
     def dimension_options(self):
         form = dict(self.request.form)
@@ -108,6 +109,7 @@ class AjaxDataView(BrowserView):
         # filtered_options = filter(lambda it: it['notation'] != "", options)
         return self.jsonify({'options': options})
 
+    @json_response
     @eeacache(cacheKey, dependencies=['edw.datacube'])
     def dimension_options_xy(self):
         form = dict(self.request.form)
@@ -130,6 +132,7 @@ class AjaxDataView(BrowserView):
                                                      x_dataset, y_dataset)
         return self.jsonify({'options': options})
 
+    @json_response
     @eeacache(cacheKey, dependencies=['edw.datacube'])
     def dimension_options_xyz(self):
         form = dict(self.request.form)
@@ -150,6 +153,7 @@ class AjaxDataView(BrowserView):
                                                       z_filters)
         return self.jsonify({'options': options})
 
+    @json_response
     @eeacache(cacheKey, dependencies=['edw.datacube'])
     def dimension_options_cp(self):
         subtype = self.request.form.pop('subtype', 'table')
@@ -210,6 +214,7 @@ class AjaxDataView(BrowserView):
                     return res
         return 0
 
+    @json_response
     @eeacache(cacheKey, dependencies=['edw.datacube'])
     def datapoints(self):
         form = dict(self.request.form)
@@ -218,6 +223,7 @@ class AjaxDataView(BrowserView):
         rows = list(self.cube.get_observations(filters=filters))
         return self.jsonify({'datapoints': rows})
 
+    @json_response
     @eeacache(cacheKey_cp, dependencies=['edw.datacube'])
     def datapoints_cp(self):
         """ Datapoints for country profile chart
@@ -228,6 +234,7 @@ class AjaxDataView(BrowserView):
         else:
             return self.datapoints_cpc()
 
+    @json_response
     @eeacache(cacheKey_cp, dependencies=['edw.datacube'])
     def datapoints_cpc(self):
         # Get whitelisted items
@@ -535,6 +542,7 @@ class AjaxDataView(BrowserView):
         mapping['table'] = table_new
         return self.jsonify({'datapoints': mapping})
 
+    @json_response
     @eeacache(cacheKey, dependencies=['edw.datacube'])
     def datapoints_xy(self):
         form = dict(self.request.form)
@@ -554,6 +562,7 @@ class AjaxDataView(BrowserView):
                                           y_filters=y_filters))
         return self.jsonify({'datapoints': rows})
 
+    @json_response
     @eeacache(cacheKey, dependencies=['edw.datacube'])
     def datapoints_xyz(self):
         form = dict(self.request.form)
