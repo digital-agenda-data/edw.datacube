@@ -169,6 +169,7 @@ class CubeMetadata(object):
 
         return result
 
+    @eeacache(cacheKey, dependencies=['edw.datacube'])
     def update(self):
         t0 = time.time()
         logger.info('loading cube metadata')
@@ -298,48 +299,10 @@ class Cube(object):
         })
         return list(self._execute(query))[0]
 
-    @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
-    def get_dimension_options_raw(self, dimension_uri):
-        # Similar to get_dimension_options, but without filters and special handling of time dimension
-        query = sparql_env.get_template('dimension_options.sparql').render(**{
-            'dataset': self.dataset,
-            'dimension_uri': dimension_uri,
-            'metadata': self.metadata,
-        })
-        res = list(self._execute(query))
-        return [row['uri'] for row in res]
-
-
-    @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
     def get_dimension_metadata(self):
-        dimensions = self.metadata.get_all_dimensions_uri()
-        result = {}
-        for dim_uri in dimensions:
-            uri_list = self.get_dimension_options_raw(dim_uri)
-            query = sparql_env.get_template('dimension_option_metadata.sparql').render(**{
-                'uri_list': uri_list,
-            })
-
-            result2 = {}
-            for row in list(self._execute(query)):
-                uri = row['uri']
-                if not uri in result2:
-                    result2[uri] = {}
-
-                for prop in row:
-                    if row[prop] is not None:
-                        result2[uri][prop] = row[prop]
-
-            # Patch missing notations and labels
-            for row in result2.values():
-                self.metadata.fix_notations(row, 'uri')
-            dimension_code = self.metadata.lookup_dimension_code(dim_uri)
-            result[dimension_code] = result2.values()
-        return result
-
+        return self.metadata.get()['notations']
 
     def get_dataset_details(self):
-        #sparql_template = 'dataset_details.sparql'
         sparql_template = 'indicator_time_coverage.sparql'
         query = sparql_env.get_template(sparql_template).render(**{
             'dataset': self.dataset,
@@ -355,24 +318,24 @@ class Cube(object):
 
         for meta in meta_list:
             uri = meta.get('uri', None)
-            meta['sourcelabel'] = meta.get('source_label', None)
-            meta['sourcelink'] = meta.get('source_url', None)
-            meta['sourcenotes'] = meta.get('source_notes', None)
-            meta['notes'] = meta.get('note', None)
-            meta['longlabel'] = meta.get('label', None)
+            #meta['sourcelabel'] = meta.get('source_label', None)
+            #meta['sourcelink'] = meta.get('source_url', None)
+            #meta['sourcenotes'] = meta.get('source_notes', None)
+            #meta['notes'] = meta.get('note', None)
+            #meta['longlabel'] = meta.get('label', None)
             res_by_uri[uri].update(meta)
 
 
         def _sort_key(item):
             try:
-                parent = int(item.get('parentOrder', None))
+                parent = int(item.get('parent_order', None))
             except (ValueError, TypeError):
                 parent = 9999
             try:
-                inner = int(item.get('innerOrder', None))
+                inner = int(item.get('inner_order', None))
             except (ValueError, TypeError):
                 inner = 9999
-            return (parent, item.get('groupName', None), inner)
+            return (parent, item.get('group_name', None), inner)
 
         return sorted(res, key=_sort_key)
 
@@ -404,19 +367,6 @@ class Cube(object):
         n_filters = [x_filters, y_filters]
         n_datasets = [x_dataset, y_dataset] if x_dataset and y_dataset else []
         return self.get_dimension_options_n(dimension, filters, n_filters, n_datasets)
-
-    def get_other_labels(self, uri):
-        # TODO: refactor this
-        if '#' in uri:
-            uri_label = uri.split('#')[-1]
-        else:
-            uri_label = uri.split('/')[-1]
-        return { "group_notation": None,
-                 "label": uri_label,
-                 "notation": uri_label,
-                 "short_label": None,
-                 "uri": uri,
-                 "order": None }
 
     def get_dimension_options_xyz(self, dimension,
                                   filters, x_filters, y_filters, z_filters):
@@ -516,6 +466,7 @@ class Cube(object):
 
     def get_dimension_codelist(self, dimension_code):
         # list of {?uri ?notation ?label}
+        # TODO possibly refactor
         return self.get_dimension_metadata()[dimension_code]
 
     def get_labels_with_duplicates(self, data):
@@ -559,6 +510,7 @@ class Cube(object):
         return columns_map.values()
 
     def get_observations(self, filters):
+        # returns a generator, see _format_observations_result
         columns = self.get_columns()
         query = sparql_env.get_template('data_and_attributes.sparql').render(**{
             'dataset': self.dataset,
@@ -567,11 +519,12 @@ class Cube(object):
             'metadata': self.metadata,
         })
         result = list(self._execute(query, as_dict=False))
+        # Keep only URI's in data, to lookup additional metadata attributes
         def reducer(memo, item):
             def uri_filter(x):
-                if x[0]:
-                    return True if x[0].startswith('http://') else False
-            x = [(uri, columns[i]['notation']) for i, uri in enumerate(item[:-1])]
+                return True if x and x.startswith('http://') else False
+            # last element is supposed to be the value, always a literal
+            x = [uri for uri in item[:-1]]
             return memo.union(set(filter(uri_filter, x)))
 
         data = reduce(reducer, result, set())
@@ -579,25 +532,23 @@ class Cube(object):
         return self._format_observations_result(result, column_names, data)
 
     def _format_observations_result(self, result, columns, data):
-        labels = self.get_labels(data)
+        # Append extra metadata e.g. notation, label etc.
+        # data is set of (code_uri, dimension_code)
         for row in result:
             result_row = []
             value = row.pop(-1)
-            for item in row:
-                # TODO: refactor this
-                if item not in map(lambda x: x[0], data):
+            for idx, item in enumerate(row):
+                if item not in data:
+                    # this is not an URI
                     result_row.append(item)
                 else:
-                    notation = labels.get(item, {}).get('notation', None)
-                    label = labels.get(item, {}).get('label', None)
-                    if notation is None:
-                        notation = self.get_other_labels(item).get('notation', None)
-                        label = self.get_other_labels(item).get('label', None)
+                    # this is an URI, add as dict
+                    meta = self.metadata.lookup_metadata(columns[idx], item)
                     result_row.append(
-                        {'notation': notation,
-                         'inner_order': labels.get(item, {}).get('inner_order', None),
-                         'label': label,
-                         'short-label': labels.get(item, {}).get('short_label', None)}
+                        {'notation': meta['notation'],
+                         'inner_order': meta.get('inner_order', 0),
+                         'label': meta['label'],
+                         'short-label': meta['short_label'],}
                     )
             if type(value) == type(Decimal()):
                 value = float(value)
@@ -631,9 +582,9 @@ class Cube(object):
         result = list(self._execute(query, as_dict=False))
         def reducer(memo, item):
             def uri_filter(x):
-                if x[0]:
-                    return True if x[0].startswith('http://') else False
-            x = [(uri, columns[i]['notation']) for i, uri in enumerate(item[:-1])]
+                # last element is supposed to be the value, always a literal
+                return True if x and x.startswith('http://') else False
+            x = [uri for uri in item[:-1]]
             return memo.union(set(filter(uri_filter, x)))
 
         data = reduce(reducer, result, set())
