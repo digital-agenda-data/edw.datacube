@@ -175,3 +175,22 @@ def test_get_observations_cp():
     assert h_iacc['indicator']['label'].startswith('Households with access to the Internet at home')
     assert h_iacc['indicator']['short-label'].startswith('Households with access to the Internet at home')
     assert len(filter(lambda item: item['indicator']['notation'] == 'i_ia12ave', result)) == 3
+
+@sparql_test
+def test_get_observations_cp2():
+    # Should not raise IndexError: list index out of range becuase of lowercase IND_TOTAL
+    cube = create_cube()
+    filters = [ ('indicator-group', 'eHealth'),
+                ('ref-area', 'BE'),
+                ('time-period', '2014')
+              ]
+    whitelist=[
+        {'indicator-group': 'ehealth', 'indicator': 'I_IUMAPP', 'breakdown': 'ind_total', 'unit-measure': 'pc_ind_iu3'},
+        {'indicator-group': 'ehealth', 'indicator': 'i_ihif', 'breakdown': 'ind_total', 'unit-measure': 'pc_ind_iu3'}
+    ]
+    result = list(cube.get_observations_cp(filters, whitelist))
+    assert len(result) == 1
+    i_ihif = filter(lambda item: item['indicator']['notation'] == 'I_IUMAPP', result)[0]
+    assert i_ihif['value'] == 0.218317
+    assert i_ihif['indicator']['label'].startswith('making an appointment with a practitioner via a website')
+    assert i_ihif['indicator']['short-label'].startswith('Appointment with a practitioner via a website')

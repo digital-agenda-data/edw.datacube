@@ -1,0 +1,22 @@
+PREFIX dc: <http://purl.org/dc/terms/>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX qb: <http://purl.org/linked-data/cube#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX dad-prop: <http://semantic.digital-agenda-data.eu/def/property/>
+
+SELECT DISTINCT ?uri ?parent_uri ?inner_order
+
+WHERE {
+    ?uri dad-prop:membership ?parentNode.
+    ?parentNode dad-prop:member-of ?parent_uri.
+    OPTIONAL {?parentNode dad-prop:order ?inner_order} .
+
+FILTER (
+{%- for uri in uri_list %}
+  ?uri = {{ uri|uri_n3 }}
+  {%- if not loop.last %} || {% endif %}
+{%- endfor %}
+)
+
+}
+

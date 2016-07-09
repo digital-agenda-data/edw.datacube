@@ -305,7 +305,7 @@ def test_dimension_options_xy_none_common():
          ]
     );
     # should return no result
-    assert res == {}
+    assert res == []
 
 @sparql_test
 def test_dimension_options_xy_time_periods():

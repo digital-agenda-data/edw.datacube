@@ -132,15 +132,12 @@ class CubeMetadata(object):
         result = {}
         for dimension_uri in dimensions:
             dimension_code = self.dimensions[dimension_uri]['notation']
-            # Replace dimension_uri with real dimension if grouper
             is_group_dimension = dimension_uri in self.groupers
-            if is_group_dimension:
-                dimension_uri = self.groupers[dimension_uri]
 
             # cannot use dimension_options.sparql because metadata is being loaded (lock)
             query = sparql_env.get_template('dimension_options_raw.sparql').render(**{
                 'dataset': self.cube.dataset,
-                'dimension_uri': dimension_uri,
+                'dimension_uri': self.groupers[dimension_uri] if is_group_dimension else dimension_uri,
                 'is_group_dimension': is_group_dimension,
             })
             uri_list = [row['uri'] for row in self.cube._execute(query)]
@@ -165,6 +162,24 @@ class CubeMetadata(object):
             # Patch missing notations and labels
             for row in result2.values():
                 self.fix_notations(row, 'uri')
+
+            # Load group memberships (multiple values allowed)
+            group_dimension = self.dimensions[dimension_uri]['group_notation']
+            if group_dimension:
+                query = sparql_env.get_template('dimension_option_grouping.sparql').render(**{
+                    'uri_list': result2.keys(),
+                })
+                for row in self.cube._execute(query):
+                    uri = row['uri']
+                    # Lookup parent
+                    # Notations for the group dimension are supposed to be already loaded
+                    parent = filter( lambda item: item['uri'] == row['parent_uri'], result[group_dimension])[0]
+
+                    result2[uri].setdefault('group_notation', []).append(parent['notation'])
+                    result2[uri].setdefault('group_name', []).append(parent['label'])
+                    result2[uri].setdefault('parent_order', []).append(parent.get('order'))
+                    result2[uri].setdefault('inner_order', []).append(row.get('inner_order'))
+
             result[dimension_code] = result2.values()
 
         return result
@@ -234,7 +249,7 @@ class CubeMetadata(object):
 
     def lookup_notation(self, dimension_code, notation):
         data = self.get()
-        return filter( lambda item: item['notation'] == notation, 
+        return filter( lambda item: item['notation'].lower() == notation.lower(), 
                        data['notations'][dimension_code])[0]
 
     def lookup_metadata(self, dimension_code, uri):
@@ -328,14 +343,14 @@ class Cube(object):
 
         def _sort_key(item):
             try:
-                parent = int(item.get('parent_order', None))
+                parent = int(item.get('parent_order', ['9999'])[0])
             except (ValueError, TypeError):
                 parent = 9999
             try:
-                inner = int(item.get('inner_order', None))
+                inner = int(item.get('inner_order', ['9999'])[0])
             except (ValueError, TypeError):
                 inner = 9999
-            return (parent, item.get('group_name', None), inner)
+            return (parent, item.get('group_name', [None])[0], inner)
 
         return sorted(res, key=_sort_key)
 
@@ -447,22 +462,72 @@ class Cube(object):
                     common_uris = set(years)
                 else:
                     common_uris = common_uris & set(years)
-        data = []
-        for uri in common_uris:
-            data.append((uri, dimension_code))
+        #data = []
+        #for uri in common_uris:
+        #    data.append((uri, dimension_code))
 
-        # duplicates - e.g. when a breakdown is member of several breakdown groups
-        labels1 = self.get_labels_with_duplicates(data)
-        if labels1:
-            labels1.sort(key=lambda item: int(item.get('order') or '0'))
-            # filter labels1 by group_notation if present in filters
-            if self.metadata.is_grouped_dimension(dimension_uri):
+        # need to handle duplicates - e.g. when a breakdown is member of several breakdown groups
+        result = []
+        filtered_group = None
+
+        for uri in common_uris:
+            meta = self.metadata.lookup_metadata(dimension_code, uri)
+            obj = {'uri': meta['uri'],
+                   'notation': meta['notation'],
+                   'label': meta['label'],
+                   'short_label': meta['short_label'],
+                   'order': meta.get('order', 0),
+                  }
+            # if there is a filter by group_notation, keep only those rows
+            if not self.metadata.is_grouped_dimension(dimension_uri):
+                # Simply add this row if not grouped
+                result.append(obj)
+                continue
+            else:
+                if not meta.get('group_notation'):
+                    # it's still possible to have orphan rows without a group
+                    # show them last # TODO not actually working in the frontend
+                    newobj = obj.copy()
+                    newobj.update({
+                        'order': 9999,
+                        'inner_order': 9999,
+                        'parent_order': 9999,
+                        'group_name': 'Other',
+                        'group_notation': 'Other',
+                        })
+                    result.append(newobj)
+                    continue
                 grouper_dimension = self.metadata.lookup_grouper_dimension(dimension_uri)
                 grouper_notation = self.metadata.lookup_dimension_code(grouper_dimension)
                 filtered_group = next((value for dimension, value in filters if dimension == grouper_notation), None)
-                if filtered_group:
-                    labels1 = [x for x in labels1 if x['group_notation'] == filtered_group]
-        return labels1
+                # If grouped, add one row for each parent group
+                for idx, group_notation in enumerate(meta['group_notation']):
+                    if filtered_group and group_notation != filtered_group:
+                        continue
+                    newobj = obj.copy()
+                    newobj.update({
+                        'group_notation': group_notation,
+                        'group_name': meta['group_name'][idx],
+                        'inner_order': meta['inner_order'][idx],
+                        'parent_order': meta['parent_order'][idx],
+                        'order': meta['inner_order'][idx],
+                        })
+                    result.append(newobj)
+
+        result.sort(key=lambda item: int(item.get('order') or '0'))
+        return result
+
+        #labels1 = self.get_labels_with_duplicates(data)
+        #if labels1:
+        #    labels1.sort(key=lambda item: int(item.get('order') or '0'))
+        #    # filter labels1 by group_notation if present in filters
+        #    if self.metadata.is_grouped_dimension(dimension_uri):
+        #        grouper_dimension = self.metadata.lookup_grouper_dimension(dimension_uri)
+        #        grouper_notation = self.metadata.lookup_dimension_code(grouper_dimension)
+        #        filtered_group = next((value for dimension, value in filters if dimension == grouper_notation), None)
+        #        if filtered_group:
+        #            labels1 = [x for x in labels1 if x['group_notation'] == filtered_group]
+        #return labels1
 
     def get_dimension_codelist(self, dimension_code):
         # list of {?uri ?notation ?label}
@@ -653,6 +718,8 @@ class Cube(object):
 
         # GET LABELS FOR URIS
         labels = self.get_labels(data)
+        # TODO: refactor here
+        #row['uri']:row
 
         filtered_data = []
         # EXTRACT COMMON ROWS

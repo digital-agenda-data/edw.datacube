@@ -9,7 +9,7 @@ def test_all_datasets_query_returns_the_dataset():
     dataset = {
         'uri': ('http://semantic.digital-agenda-data.eu/'
                 'dataset/digital-agenda-scoreboard-key-indicators'),
-        'title': 'Digital Agenda Key Indicators',
+        'title': ANY
     }
     assert dataset in res
 
@@ -18,7 +18,7 @@ def test_all_datasets_query_returns_the_dataset():
 def test_dataset_metadata():
     cube = create_cube()
     res = cube.get_dataset_metadata(cube.dataset)
-    assert res['title'] == "Digital Agenda Key Indicators"
+    assert "Digital Agenda" in res['title']
     #assert "You can also browse the data" in res['description']
     #assert res['license'].startswith('http://')
 
@@ -77,10 +77,10 @@ def test_get_dataset_details():
     i_iusell = by_notation['i_iusell']
     assert "selling online" in i_iusell.get('short_label', '').lower()
     assert "in the last 3 months" in i_iusell['definition']
-    assert i_iusell['group_name'] == "eCommerce"
-    assert i_iusell['sourcelabel'] == "Eurostat - ICT Households survey"
-    #assert "Extraction from HH/Indiv" in i_iusell['sourcenotes']
-    assert i_iusell['sourcelink'] == (
+    assert i_iusell['group_name'][0] == "eCommerce"
+    assert i_iusell['source_label'] == "Eurostat - ICT Households survey"
+    assert "Extraction" in i_iusell['source_notes']
+    assert i_iusell['source_url'] == (
             'http://ec.europa.eu/eurostat'
             '/web/information-society/data/comprehensive-database')
 
@@ -99,11 +99,11 @@ def test_get_dimension_option_metadata_list():
     ]
     res = cube.get_dimension_option_metadata_list('indicator', uri_list)
     result = filter( lambda item: item['notation'] == 'e_igov', res)[0]
-    assert result['group_name'] == 'Discontinued indicators'
-    assert result['inner_order'] == '25'
+    assert result['group_name'][0] == 'Discontinued indicators'
+    assert result['inner_order'][0] == '25'
     assert result['label'] == 'Enterprises interacting online with public authorities'
     assert result['notation'] == 'e_igov'
-    assert result['parent_order'] == '900'
+    assert result['parent_order'][0] == '900'
     assert result['short_label'] == 'Use of eGovernment services - enterprises'
     assert result['source_definition'] == 'Eurostat - Community survey on ICT usage and eCommerce in Enterprises'
     assert result['source_label'] == 'Eurostat - ICT Enterprises survey'
@@ -112,11 +112,11 @@ def test_get_dimension_option_metadata_list():
     assert result['definition'][0:31] == 'Use of internet for interaction'
 
     result = filter( lambda item: item['notation'] == 'bb_penet', res)[0]
-    assert result['group_name'] == 'Broadband take-up and coverage'
-    assert result['inner_order'] == '6'
+    assert result['group_name'][0] == 'Broadband take-up and coverage'
+    assert result['inner_order'][0] == '6'
     assert result['label'] == 'Fixed broadband take-up (subscriptions/100 people)'
     assert result['notation'] == 'bb_penet'
-    assert result['parent_order'] == '20'
+    assert result['parent_order'][0] == '20'
     assert result['short_label'] == 'Fixed broadband take-up (penetration rate)'
     assert result['source_definition'][0:43] == 'Electronic communications market indicators'
     assert result['source_label'] == 'Communications Committee survey'

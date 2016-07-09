@@ -2,7 +2,7 @@ from mock import ANY
 from .base import sparql_test, create_cube
 
 @sparql_test
-def test_metadata_cache():
+def test_cube_dimensions_cache():
     cube = create_cube()
     metadata = cube.metadata.get()
     dimensions = metadata['dimensions']
@@ -98,3 +98,4 @@ def test_metadata_cache():
     assert cube.metadata.is_group_dimension('http://semantic.digital-agenda-data.eu/def/property/indicator-group')
     assert cube.metadata.is_grouped_dimension('http://semantic.digital-agenda-data.eu/def/property/indicator')
     assert cube.metadata.is_grouped_dimension('http://semantic.digital-agenda-data.eu/def/property/breakdown')
+
