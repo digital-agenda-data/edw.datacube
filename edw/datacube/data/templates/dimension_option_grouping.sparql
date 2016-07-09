@@ -4,12 +4,12 @@ PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX dad-prop: <http://semantic.digital-agenda-data.eu/def/property/>
 
-SELECT DISTINCT ?uri ?parent_uri ?inner_order
+SELECT DISTINCT ?uri ?parent_uri (xsd:string(?inner_orderraw) as ?inner_order)
 
 WHERE {
     ?uri dad-prop:membership ?parentNode.
     ?parentNode dad-prop:member-of ?parent_uri.
-    OPTIONAL {?parentNode dad-prop:order ?inner_order} .
+    OPTIONAL {?parentNode dad-prop:order ?inner_orderraw} .
 
 FILTER (
 {%- for uri in uri_list %}

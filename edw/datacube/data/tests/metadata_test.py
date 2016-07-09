@@ -99,3 +99,15 @@ def test_cube_dimensions_cache():
     assert cube.metadata.is_grouped_dimension('http://semantic.digital-agenda-data.eu/def/property/indicator')
     assert cube.metadata.is_grouped_dimension('http://semantic.digital-agenda-data.eu/def/property/breakdown')
 
+@sparql_test
+def test_cube_notations_cache():
+    cube = create_cube()
+    metadata = cube.metadata.get()
+
+    result = cube.metadata.lookup_notation('breakdown', 'Y16_24')
+    assert result['uri'] == 'http://semantic.digital-agenda-data.eu/codelist/breakdown/y16_24'
+    assert 2 == len(result['group_notation'])
+
+    result = cube.metadata.lookup_metadata('time-period', 'http://reference.data.gov.uk/id/gregorian-year/2009')
+    assert result['notation'] == '2009'
+    assert result['short_label'] == '2009'

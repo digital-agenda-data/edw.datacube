@@ -485,8 +485,7 @@ class Cube(object):
                 continue
             else:
                 if not meta.get('group_notation'):
-                    # it's still possible to have orphan rows without a group
-                    # show them last # TODO not actually working in the frontend
+                    # it's still possible to have orphan rows without a group, show them last
                     newobj = obj.copy()
                     newobj.update({
                         'order': 9999,
@@ -517,40 +516,10 @@ class Cube(object):
         result.sort(key=lambda item: int(item.get('order') or '0'))
         return result
 
-        #labels1 = self.get_labels_with_duplicates(data)
-        #if labels1:
-        #    labels1.sort(key=lambda item: int(item.get('order') or '0'))
-        #    # filter labels1 by group_notation if present in filters
-        #    if self.metadata.is_grouped_dimension(dimension_uri):
-        #        grouper_dimension = self.metadata.lookup_grouper_dimension(dimension_uri)
-        #        grouper_notation = self.metadata.lookup_dimension_code(grouper_dimension)
-        #        filtered_group = next((value for dimension, value in filters if dimension == grouper_notation), None)
-        #        if filtered_group:
-        #            labels1 = [x for x in labels1 if x['group_notation'] == filtered_group]
-        #return labels1
-
     def get_dimension_codelist(self, dimension_code):
         # list of {?uri ?notation ?label}
         # TODO possibly refactor
         return self.get_dimension_metadata()[dimension_code]
-
-    def get_labels_with_duplicates(self, data):
-        if len(data) < 1:
-            return {}
-        tmpl = sparql_env.get_template('labels.sparql')
-        uri_list = []
-        for item in data:
-            # item = (uri, dimension)
-            uri_list.append(item[0])
-        query = tmpl.render(**{
-            'uri_list': uri_list,
-        })
-        return list(self._execute(query))
-
-    def get_labels(self, data):
-        result = self.get_labels_with_duplicates(data)
-        labels = {row['uri']:row for row in result}
-        return labels
 
     def get_dimension_option_metadata_list(self, dimension_code, uri_list):
         return [self.metadata.lookup_metadata(dimension_code, uri) for uri in uri_list]
@@ -716,11 +685,6 @@ class Cube(object):
                         if isinstance(value, basestring) and value.startswith('http://'):
                             data.add((value, key))
 
-        # GET LABELS FOR URIS
-        labels = self.get_labels(data)
-        # TODO: refactor here
-        #row['uri']:row
-
         filtered_data = []
         # EXTRACT COMMON ROWS
         dimensions = ['x', 'y', 'z']
@@ -736,13 +700,14 @@ class Cube(object):
                         out[key] = obs[key]
                 for k, v in out.items():
                     if k not in single_keys:
-                        uri_labels = labels.get(v[dimensions[idx]], v[dimensions[idx]])
-                        if uri_labels:
-                            out[k][dimensions[idx]] = uri_labels
+                        #uri = v[dimensions[idx]]
+                        # dimensions[idx] is x, y, z
+                        # v is dict {x: xval, y:yval }
+                        if (v[dimensions[idx]], k) in data:
+                            # This should be an URI, replace with metadata
+                            out[k][dimensions[idx]] = self.metadata.lookup_metadata(k, v[dimensions[idx]])
                     else:
-                        uri_labels = labels.get(v, None)
-                        if uri_labels:
-                            out[k] = uri_labels
+                        out[k] = self.metadata.lookup_metadata(k, v)
                 idx+=1
             filtered_data.append(out)
         return filtered_data

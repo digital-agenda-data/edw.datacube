@@ -222,18 +222,6 @@ def test_get_indicator_source_metadata():
         "http://ec.europa.eu/eurostat/web/information-society/data/comprehensive-database")
 
 @sparql_test
-def test_get_labels():
-    import sparql
-    cube = create_cube()
-    data = [('http://reference.data.gov.uk/id/gregorian-year/2007', 'time-period'),
-                ('http://reference.data.gov.uk/id/gregorian-year/2009', 'time-period')]
-    res = cube.get_labels(data)
-    assert sorted(res.keys()) == map(lambda item: item[0], data)
-    assert res[data[1][0]]['notation'] == '2009'
-    assert res[data[1][0]]['short_label'] == '2009'
-
-
-@sparql_test
 def test_indicator_groups_are_sorted():
     cube = create_cube()
     res = cube.get_dimension_options(dimension='indicator-group')

@@ -14,6 +14,9 @@ def test_get_same_observation_in_two_dimensions():
     points = list(cube.get_data_xy('ref-area', filters, [], []))
     assert len(points) == 1
     assert points[0]['value'] == {'x': 0.222202, 'y': 0.222202}
+    assert points[0]['indicator']['notation'] == 'i_bfeu'
+    assert points[0]['indicator']['short_label'] == 'Cross-border eCommerce'
+
 
 @sparql_test
 def test_get_observations_with_labels_xy():
@@ -81,6 +84,8 @@ def test_get_xy_observations_with_all_breakdowns():
     points = list(cube.get_data_xy('ref-area', filters, x_filters, y_filters))
     assert points[0]['indicator']['label'].startswith(
         'Individuals ordering goods')
+    assert points[0]['breakdown']['x']['short_label'] == 'All individuals'
+    assert points[0]['breakdown']['y']['short_label'] == 'All individuals'
 
 
 @sparql_test
