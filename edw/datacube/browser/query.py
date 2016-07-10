@@ -164,7 +164,8 @@ class AjaxDataView(BrowserView):
 
         rows = []
         for option in options.get('options', []):
-            if subtype == u'polar' and option.get('notation') == 'EU27':
+            if subtype == u'polar' and option.get('notation') in ['EU27', 'EU28', 'EU']:
+                # Allow EU average selection in spider chart only
                 rows.append(option)
                 continue
 
@@ -250,6 +251,7 @@ class AjaxDataView(BrowserView):
         # Compute new values
         mapping = {}
         latest = {}
+
         for point in all_datapoint_rows:
             key = (
                 point['indicator']['notation'],
@@ -273,15 +275,23 @@ class AjaxDataView(BrowserView):
                 mapping[key] = {
                     'min': {'value': None, 'ref-area': countryName},
                     'max': {'value': None, 'ref-area': countryName},
-                    'med': {'value': None, 'ref-area': 'EU27'}
+                    'med': {'value': None, 'ref-area': 'EU'}
                 }
 
+            country = point['ref-area']['notation']
             # Update med
-            if point['ref-area']['notation'] == 'EU27':
+            if country == 'EU28':
+                mapping[key]['med']['value'] = point['value']
+                mapping[key]['med']['ref-area'] = 'EU28'
+            elif country == 'EU27' and mapping[key]['med']['ref-area'] != 'EU28':
+                # Don't overwrite EU28 with EU27
+                mapping[key]['med']['value'] = point['value']
+                mapping[key]['med']['ref-area'] = 'EU27'
+            elif country == 'EU':
                 mapping[key]['med']['value'] = point['value']
 
-            # Update min / max only for EU27 countries
-            if point['ref-area']['notation'] not in eu:
+            # Update min / max only for EU28 countries
+            if country not in eu:
                 continue
 
             # Update min
@@ -324,6 +334,7 @@ class AjaxDataView(BrowserView):
             val = point['value']
             minVal = mapping[key]['min']['value']
             maxVal = mapping[key]['max']['value']
+            # Use minVal+maxVal / 2 instead of EU28 value when not found
             medVal = mapping[key]['med']['value'] or (minVal+maxVal)/2
             #rank = mapping[key]['rank']['value']
 
@@ -487,13 +498,16 @@ class AjaxDataView(BrowserView):
                 logger.exception(err)
                 continue
 
-        # Compute rank amoung EU27 countries
+        # Compute rank amoung EU28 countries
         for key, value in datapoint_rows.items():
             country = key[-1]
             key = key[:-1]
-            if country == 'EU27':
+            if country in ['EU27', 'EU28', 'EU']:
                 if table.get(key):
-                    table[key]['eu'] = value
+                    if table[key].get('eu_notation') != 'EU28':
+                        # Do not overwrite EU28 with EU27 or EU
+                        table[key]['eu_notation'] = country
+                        table[key]['eu'] = value
 
             # Skip non-EU countries from rank computation
             if country not in eu or countryName not in eu:

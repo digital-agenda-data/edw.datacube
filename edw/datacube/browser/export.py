@@ -98,7 +98,7 @@ class ExportCSV(BrowserView):
             years = ['%s' % (latest-3), '%s' % (latest-2), '%s' % (latest-1), '%s' % (latest)]
 
             headers = (['country', 'indicator', 'breakdown', 'unit'] + years +
-                       ['EU27 value %s' %latest, 'rank'])
+                       ['EU28 value %s' %latest, 'rank'])
             writer = csv.DictWriter(response, headers, restval='', dialect=csv.excel)
             writer.writeheader()
 
@@ -110,7 +110,7 @@ class ExportCSV(BrowserView):
                 for year in years:
                     encoded[year] = unicode(ind.get(year, '-')).encode('utf-8')
                 #encoded['%s' %latest] = unicode(ind.get('%s' %latest, '-')).encode('utf-8')
-                encoded['EU27 value %s' %latest] = unicode(
+                encoded['EU28 value %s' %latest] = unicode(
                         ind.get('eu', '-')).encode('utf-8')
                 rank = ind.get('rank', '-')
                 if rank == 0:

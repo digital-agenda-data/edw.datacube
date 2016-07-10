@@ -266,7 +266,7 @@ def test_table_profile_csv_export():
     out.seek(0)
     csv_output = out.read().split('\r\n')
     assert csv_output[0].split(',') == [
-            'country', 'indicator', 'breakdown', 'unit', '2007', '2008', '2009', '2010', 'EU27 value 2010', 'rank']
+            'country', 'indicator', 'breakdown', 'unit', '2007', '2008', '2009', '2010', 'EU28 value 2010', 'rank']
     assert csv_output[1].split(',') == [
             'Austria', 'Telephoning or video calls', 'All individuals', '% of internet users (last 3 months)', '-', '-', '0.8', '0.9', '52', '15']
     assert csv_output[2].split(',') == [

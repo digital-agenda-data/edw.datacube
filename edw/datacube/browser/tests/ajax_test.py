@@ -2,6 +2,7 @@
 from mock import Mock, MagicMock, call, patch
 import simplejson as json
 import pytest
+import copy
 from edw.datacube.browser.query import AjaxDataView
 
 
@@ -349,3 +350,105 @@ def test_datapoints_cpc_latest(mock_adapter, mock_cube):
     res = json.loads(view.datapoints_cpc())
     assert len(res['datapoints']) == 1
     assert res['datapoints'][0]['time-period']['notation'] == "2013-Q4"
+
+def get_datapoints_cp():
+    obs = {
+            "breakdown": {
+                "short-label": "All enterprises",
+                "notation": "ent_all_xfin",
+                "label": "All enterprises"
+            },
+            "indicator": {
+                "short-label": "Enterprises with a fixed broadband connection",
+                "notation": "e_broad",
+                "label": "Enterprises with a fixed broadband connection",
+                "inner_order": 1
+            },
+            "time-period": {
+                "short-label": "2015",
+                "notation": "2015",
+                "label": "Year:2015"
+            },
+            "value": 0.926255,
+            "note": None,
+            "flag": None,
+            "unit-measure": {
+                "short-label": "% of enterprises",
+                "notation": "pc_ent",
+                "label": "Percentage of enterprises"
+            },
+            "ref-area": {
+                "short-label": None,
+                "notation": "EU27",
+                "label": "EU27"
+            }
+        }
+    obs2 = copy.deepcopy(obs)
+    obs2['ref-area']['notation'] = 'EU28'
+    obs2['value'] = 0.925897
+
+    obs3 = copy.deepcopy(obs)
+    obs3['ref-area']['notation'] = 'RO'
+    obs3['value'] = 0.55
+
+    return [obs, obs2, obs3]
+
+from edw.datacube.browser import query
+from edw.datacube.browser.query import AjaxDataView
+
+@patch.object(query, 'queryMultiAdapter')
+def test_datapoints_cpc_EU28(mock_adapter, mock_cube):
+
+    datapoints = get_datapoints_cp()
+    form = {
+        'indicator-group': 'broadband',
+        'ref-area': 'RO',
+        'time-period': '2015',
+        'indicator': ["e_broad"],
+        'subtype': 'chart'
+    }
+
+    datasource = Mock(get_cube=Mock(return_value=mock_cube))
+    view = AjaxDataView(datasource, Mock(form=form))
+    mock_cube.get_observations_cp = Mock(return_value=datapoints)
+    mock_adapter.return_value = Mock(
+        whitelist=[
+            {'indicator-group': 'broadband',
+             'breakdown': 'ent_all_xfin',
+             'indicator': 'e_broad',
+             'unit-measure': 'pc_ent'}],
+        eu = {'RO': 'Romania'}
+    )
+    res = json.loads(view.datapoints_cpc())
+    assert len(res['datapoints']) == 3
+    assert res['datapoints'][0]['eu'] == 0.925897
+
+@patch.object(query, 'queryMultiAdapter')
+def test_datapoints_cpt_EU28(mock_adapter, mock_cube):
+
+    datapoints = get_datapoints_cp()
+    form = {
+        'indicator-group': 'broadband',
+        'ref-area': 'RO',
+        'time-period': '2015',
+        'indicator': ["e_broad"],
+        'subtype': 'table'
+    }
+
+    datasource = Mock(get_cube=Mock(return_value=mock_cube))
+    view = AjaxDataView(datasource, Mock(form=form))
+    mock_cube.get_observations_cp = Mock(return_value=datapoints)
+    mock_adapter.return_value = Mock(
+        whitelist=[
+            {'indicator-group': 'broadband',
+             'breakdown': 'ent_all_xfin',
+             'indicator': 'e_broad',
+             'unit-measure': 'pc_ent'}],
+        eu = {'RO': 'Romania'}
+    )
+    res = json.loads(view.datapoints_cpt())
+    assert len(res['datapoints']) == 4
+    assert len(res['datapoints']['table']) == 1
+    assert res['datapoints']['latest'] == 2015
+    assert res['datapoints']['ref-area']['notation'] == 'RO'
+    assert res['datapoints']['table']['e_broad,ent_all_xfin,pc_ent']['eu'] == 0.925897
