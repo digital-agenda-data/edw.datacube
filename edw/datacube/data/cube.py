@@ -249,8 +249,12 @@ class CubeMetadata(object):
 
     def lookup_notation(self, dimension_code, notation):
         data = self.get()
-        return filter( lambda item: item['notation'].lower() == notation.lower(), 
-                       data['notations'][dimension_code])[0]
+        result = filter( lambda item: item['notation'].lower() == notation.lower(),
+                       data['notations'][dimension_code])
+        if not result:
+            logger.error('Notation not found: {}[{}]'.format(dimension_code, notation))
+
+        return result[0]
 
     def lookup_metadata(self, dimension_code, uri):
         data = self.get()
@@ -598,12 +602,15 @@ class Cube(object):
         for item in whitelist_items:
             mapped_item = {}
             if item['indicator-group'].lower() == indicator_group.lower():
-                for n, col in enumerate(columns, 1):
-                    name = col['notation']
-                    if name in ['indicator', 'breakdown', 'unit-measure']:
-                        mapped_item[n] = self.metadata.lookup_notation(
-                                            name, item[name])['uri']
-                whitelist.append(mapped_item)
+                try:
+                  for n, col in enumerate(columns, 1):
+                      name = col['notation']
+                      if name in ['indicator', 'breakdown', 'unit-measure']:
+                          mapped_item[n] = self.metadata.lookup_notation(name, item[name])['uri']
+                      whitelist.append(mapped_item)
+                except IndexError:
+                    # do not append in whitelist missing notations
+                    pass
         if not whitelist:
             return []
         query = sparql_env.get_template('data_and_attributes_cp.sparql').render(**{
