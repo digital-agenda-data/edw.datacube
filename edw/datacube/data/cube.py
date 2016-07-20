@@ -133,6 +133,7 @@ class CubeMetadata(object):
         for dimension_uri in dimensions:
             dimension_code = self.dimensions[dimension_uri]['notation']
             is_group_dimension = dimension_uri in self.groupers
+            logger.info('loading notations for dimension %s', dimension_code)
 
             # cannot use dimension_options.sparql because metadata is being loaded (lock)
             query = sparql_env.get_template('dimension_options_raw.sparql').render(**{
@@ -187,9 +188,9 @@ class CubeMetadata(object):
     @eeacache(cacheKey, dependencies=['edw.datacube'])
     def update(self):
         t0 = time.time()
-        logger.info('loading cube metadata')
+        logger.info('loading cube metadata (%s)', self.cube.dataset)
         self.dimensions = self.load_dimensions()
-        logger.info('cube metadata loaded, %.2f seconds', time.time() - t0)
+        logger.info('cube metadata loaded, %.2f seconds (%s)', time.time() - t0, self.cube.dataset)
         # prepare some redundant dictionaries for convenient use
         self.grouped_dimensions = dict([(k, v['group_dimension']) for k,v in self.dimensions.items()
             if v['group_dimension']])
@@ -198,9 +199,9 @@ class CubeMetadata(object):
         self.measure_uri = next( (k for k,v in self.dimensions.items()
             if v['type_label'] == 'measure'), None)
         t0 = time.time()
-        logger.info('loading notations')
+        logger.info('loading notations (%s)', self.cube.dataset)
         self.notations = self.load_notations()
-        logger.info('notations loaded, %.2f seconds', time.time() - t0)
+        logger.info('notations loaded, %.2f seconds (%s)', time.time() - t0, self.cube.dataset)
         return {
             'dimensions': self.dimensions,
             'notations': self.notations,
