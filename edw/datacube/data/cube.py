@@ -754,6 +754,7 @@ class Cube(object):
         return urllib2.urlopen(self.endpoint, data=data).read()
 
     def search_indicators(self, words):
+        logger.info('Search term: (%s)', (",".join(words)))
         search = ' and '.join(["'{0}'".format(word) for word in words])
         query = sparql_env.get_template('search.sparql').render(**{
             'search': search,
