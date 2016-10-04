@@ -13,9 +13,10 @@ WHERE {
     {%- for uri in uri_list %}
       ( {{ uri|uri_n3 }} )
     {%- endfor %}
-  }}
+    }
+  OPTIONAL { ?uri skos:notation ?notation }
+  }
 
-  UNION { ?uri skos:notation ?notation }
   UNION { ?uri skos:prefLabel ?label }
   UNION { ?uri skos:altLabel ?short_label }
   UNION { ?uri skos:note ?note }
