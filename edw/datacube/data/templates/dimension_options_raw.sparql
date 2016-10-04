@@ -9,10 +9,7 @@ SELECT DISTINCT ?uri WHERE {
 {%- else %}
     ?observation {{ dimension_uri|uri_n3 }} ?uri.
 {% endif %}
-
-  FILTER EXISTS {
-      ?observation qb:dataSet {{ dataset|uri_n3 }} .
-  }
+  ?observation qb:dataSet {{ dataset|uri_n3 }} .
   FILTER(isIRI(?uri))
 }
 

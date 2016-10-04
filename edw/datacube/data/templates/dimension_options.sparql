@@ -24,8 +24,6 @@ SELECT DISTINCT ?uri WHERE {
 {% endif %}
     ?observation {{ measure_uri|uri_n3 }} ?value .
 
-  FILTER EXISTS {
-      ?observation qb:dataSet {{ dataset|uri_n3 }} .
-  }
+  ?observation qb:dataSet {{ dataset|uri_n3 }} .
 }
 LIMIT 10000
