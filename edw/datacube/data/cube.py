@@ -293,14 +293,19 @@ class Cube(object):
         try:
             query_object = sparql.Service(self.endpoint).createQuery()
             query_object.method = 'POST'
-            res = query_object.query(query)
+            # 30 seconds should be a reasonable timeout
+            res = query_object.query(query, timeout=30)
         except urllib2.HTTPError, e:
             if SPARQL_DEBUG:
-                logger.info('Query failed')
+                logger.error('Query failed')
             if 400 <= e.code < 600:
                 raise QueryError(e.fp.read())
             else:
                 raise
+        except sparql.SparqlException as e:
+            if SPARQL_DEBUG:
+                logger.error('Query failed')
+            raise
         if SPARQL_DEBUG:
             logger.info('Query took %.2f seconds.', time.time() - t0)
         rv = (sparql.unpack_row(r) for r in res)
