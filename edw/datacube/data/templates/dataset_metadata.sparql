@@ -1,8 +1,13 @@
 PREFIX dc: <http://purl.org/dc/terms/>
 PREFIX qb: <http://purl.org/linked-data/cube#>
 SELECT DISTINCT * WHERE {
-  OPTIONAL {
-    {{ dataset|uri_n3 }} dc:title ?title
+  {
+    VALUES (?dataset) {
+    ({{ dataset|uri_n3 }})
+    }
+    OPTIONAL {
+      {{ dataset|uri_n3 }} dc:title ?title
+    }
   }
   OPTIONAL {
     {{ dataset|uri_n3 }} dc:description ?description
