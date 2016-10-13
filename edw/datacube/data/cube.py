@@ -335,8 +335,7 @@ class Cube(object):
 
         # indicator, maxYear, minYear
         res = list(self._execute(query))
-        res_by_uri = {row['indicator']: row for row in res}
-
+        res_by_uri = {row['indicator']: row for row in res if row['indicator']}
         meta_list = self.get_dimension_option_metadata_list(
             'indicator', list(res_by_uri)
         )
