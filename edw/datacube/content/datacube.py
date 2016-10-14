@@ -72,8 +72,22 @@ DataCubeSchema = folder.ATFolderSchema.copy() + atapi.Schema((
             format=u'select',
             label=_(u'Clone from'),
             description='Copy the charts from this DataSet'
-            )
-        ),
+        )
+    ),
+
+    atapi.ReferenceField(
+        'default_visualisation',
+        multiValued=0,
+        relationship='default_visualisation_rel',
+        languageIndependent=True,
+        allowed_types=('ScoreboardVisualization'),
+        vocabulary_factory=u'edw.datacube.vocabulary.RelatedVisualizations',
+        widget=atapi.SelectionWidget(
+            format=u'select',
+            label=_(u'Default chart'),
+            description='Search results will link to this visualisation'
+        )
+    ),
 ))
 
 # Set storage on fields copied from ATFolderSchema, making sure

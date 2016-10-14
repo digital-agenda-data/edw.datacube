@@ -20,4 +20,9 @@
     name="edw.datacube.vocabulary.AvailableDataCubes"
     />
 
+  <utility
+    factory=".vocabularies.RelatedVisualizationVocabulary"
+    name="edw.datacube.vocabulary.RelatedVisualizations"
+    />
+
 </configure>

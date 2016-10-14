@@ -259,8 +259,11 @@ class CubeMetadata(object):
 
     def lookup_metadata(self, dimension_code, uri):
         data = self.get()
-        return filter( lambda item: item['uri'] == uri, 
-                       data['notations'][dimension_code])[0]
+        results = filter(lambda item: item['uri'] == uri, data['notations'][dimension_code])
+        if not results:
+            logger.error('Metadata for %s not found in %s[%s]', uri, self.cube.dataset, dimension_code)
+            return None
+        return results[0]
 
     def lookup_dimension_info(self, dimension_uri):
         data = self.get()
@@ -755,3 +758,10 @@ class Cube(object):
             'format': format
         })
         return urllib2.urlopen(self.endpoint, data=data).read()
+
+    def search_indicators(self, words):
+        search = ' and '.join(["'{0}'".format(word) for word in words])
+        query = sparql_env.get_template('search.sparql').render(**{
+            'search': search,
+        })
+        return self._execute(query)

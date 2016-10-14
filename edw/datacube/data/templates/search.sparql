@@ -1,0 +1,15 @@
+PREFIX dad-prop: <http://semantic.digital-agenda-data.eu/def/property/>
+PREFIX qb: <http://purl.org/linked-data/cube#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT MAX(?sc) as ?score ?uri ?dataset ?label ?definition
+WHERE {
+  ?uri ?p ?text . 
+  ?uri skos:prefLabel ?label.
+  OPTIONAL {?uri skos:definition ?definition}
+  {% if search %} ?text bif:contains {{ search|literal_n3 }} OPTION (SCORE ?sc) . {% endif %}
+  ?observation dad-prop:indicator ?uri; qb:dataSet ?dataset .
+}
+GROUP BY ?dataset ?uri ?label ?definition
+ORDER BY DESC(?score)
+LIMIT 1000
