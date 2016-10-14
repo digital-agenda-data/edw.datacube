@@ -120,10 +120,7 @@
                 <a href="@@codelists" rel="nofollow">Codelists</a>
             </li>
             <li>
-                <a href="@@structure" rel="nofollow">Structure</a>
-            </li>
-            <li>
-                <a href="@@get_dataset_metadata" rel="nofollow">Dataset metadata</a>
+                <a href="@@get_dataset_metadata" rel="nofollow">Dataset metadata and structure</a>
             </li>
         </ul>
       </div>

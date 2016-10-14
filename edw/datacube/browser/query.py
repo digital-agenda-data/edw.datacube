@@ -562,41 +562,29 @@ class AjaxDataView(BrowserView):
             else:
                 filters.append((k, v))
         rows = list(self.cube.get_data_xyz(join_by=join_by,
-                                          filters=filters,
-                                          x_filters=x_filters,
-                                          y_filters=y_filters,
-                                          z_filters=z_filters))
+                                           filters=filters,
+                                           x_filters=x_filters,
+                                           y_filters=y_filters,
+                                           z_filters=z_filters))
         return self.jsonify({'datapoints': rows})
 
-    def download_codelists(self):
+    def download_rdf(self, filename, sparql_template):
         response = self.request.response
         response.setHeader('Content-type', 'text/rdf+xml; charset=utf-8')
-        filename = '%s-codelists.rdf' % self.context.getId()
+        filename = '%s-%s' % (self.context.getId(), filename)
         response.setHeader('Content-Disposition',
                            'attachment;filename=%s' % filename)
         response.write('')
-        data = self.cube.dump_constructs(template='construct_codelists.sparql')
+        data = self.cube.dump_constructs(template=sparql_template)
         response.write(data)
         return response
+
+    def download_codelists(self):
+        return self.download_rdf('codelists.ttl', 'construct_codelists.sparql')
 
     def download_structure(self):
-        response = self.request.response
-        response.setHeader('Content-type', 'text/rdf+xml; charset=utf-8')
-        filename = '%s-structure.rdf' % self.context.getId()
-        response.setHeader('Content-Disposition',
-                           'attachment;filename=%s' % filename)
-        response.write('')
-        data = self.cube.dump_constructs(template='construct_structure.sparql')
-        response.write(data)
-        return response
+        # Not used anymore
+        return self.download_rdf('structure.ttl', 'construct_structure.sparql')
 
     def download_dataset_metadata(self):
-        response = self.request.response
-        response.setHeader('Content-type', 'text/rdf+xml; charset=utf-8')
-        filename = '%s-metadata.rdf' % self.context.getId()
-        response.setHeader('Content-Disposition',
-                           'attachment;filename=%s' % filename)
-        response.write('')
-        data = self.cube.dump_constructs(template='construct_dataset_metadata.sparql')
-        response.write(data)
-        return response
+        return self.download_rdf('metadata.ttl', 'construct_dataset_metadata.sparql')

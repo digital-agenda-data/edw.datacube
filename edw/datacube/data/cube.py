@@ -288,8 +288,9 @@ class Cube(object):
 
     def _execute(self, query, as_dict=True):
         t0 = time.time()
+        query_id = hash(query)
         if SPARQL_DEBUG:
-            logger.info('Running query: \n%s', query)
+            logger.info('Running query [%d]: \n%s', query_id, query)
         try:
             query_object = sparql.Service(self.endpoint).createQuery()
             query_object.method = 'POST'
@@ -297,18 +298,21 @@ class Cube(object):
             res = query_object.query(query, timeout=30)
         except urllib2.HTTPError, e:
             if SPARQL_DEBUG:
-                logger.error('Query failed')
+                logger.error('Query failed [%d]', query_id)
             if 400 <= e.code < 600:
                 raise QueryError(e.fp.read())
             else:
                 raise
         except sparql.SparqlException as e:
             if SPARQL_DEBUG:
-                logger.error('Query failed')
+                logger.error('Query failed [%d]', query_id)
+            raise
             raise
         if SPARQL_DEBUG:
-            logger.info('Query took %.2f seconds.', time.time() - t0)
+            logger.info('Query [%d] took %.2f seconds.', query_id, time.time() - t0)
         rv = (sparql.unpack_row(r) for r in res)
+        if SPARQL_DEBUG:
+            logger.info('Parsing response [%d] took %.2f seconds.', query_id, time.time() - t0)
         if as_dict:
             return (dict(zip(res.variables, r)) for r in rv)
         else:
@@ -733,7 +737,7 @@ class Cube(object):
         data_cache.ping(timestamp)
         return timestamp
 
-    def dump_constructs(self, format='application/rdf+xml',
+    def dump_constructs(self, format='text/turtle',
                         template='construct_codelists.sparql'):
         """
         Sends queries directly to the endpoint.
@@ -744,6 +748,8 @@ class Cube(object):
             'dataset': self.dataset,
             'dimensions': self.metadata.get_all_dimensions_and_attributes()
         })
+        if SPARQL_DEBUG:
+            logger.info('Running SPARQL construct:\n%s.', query)
         data = urllib.urlencode({
             'query': query,
             'format': format
