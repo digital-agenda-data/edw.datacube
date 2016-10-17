@@ -213,13 +213,11 @@ def test_get_indicator_source_metadata():
     cube = create_cube()
     res = cube.get_dimension_option_metadata('indicator', 'i_iuse')
     assert res['label'] == "Individuals who are regular internet users (at least once a week)"
-    assert res['source_label'] == "Eurostat - ICT Households survey"
-    assert res['source_definition'] == (
-        "Eurostat - Community survey on ICT usage in Households and by Individuals")
+    assert "Eurostat" in res['source_label']
+    assert "Eurostat" in res['source_definition']
     #assert res['source_notes'] == (
     #    u"Extraction from HH/Indiv comprehensive database (ACCESS) version\xa0April 2014")
-    assert res['source_url'] == (
-        "http://ec.europa.eu/eurostat/web/information-society/data/comprehensive-database")
+    assert "eurostat" in res['source_url']
 
 @sparql_test
 def test_indicator_groups_are_sorted():
