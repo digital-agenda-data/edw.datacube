@@ -175,7 +175,6 @@ class CubeMetadata(object):
                     # Lookup parent
                     # Notations for the group dimension are supposed to be already loaded
                     parent = filter( lambda item: item['uri'] == row['parent_uri'], result[group_dimension])[0]
-
                     result2[uri].setdefault('group_notation', []).append(parent['notation'])
                     result2[uri].setdefault('group_name', []).append(parent['label'])
                     result2[uri].setdefault('parent_order', []).append(parent.get('order'))

@@ -78,11 +78,10 @@ def test_get_dataset_details():
     assert "selling online" in i_iusell.get('short_label', '').lower()
     assert "in the last 3 months" in i_iusell['definition']
     assert i_iusell['group_name'][0] == "eCommerce"
-    assert i_iusell['source_label'] == "Eurostat - ICT Households survey"
-    assert "Extraction" in i_iusell['source_notes']
-    assert i_iusell['source_url'] == (
-            'http://ec.europa.eu/eurostat'
-            '/web/information-society/data/comprehensive-database')
+    assert "Eurostat" in i_iusell['source_label']
+    assert "eurostat" in i_iusell['source_url']
+    actspeed = by_notation['actspeed']
+    assert "2013" in actspeed['source_notes']
 
 @sparql_test
 def test_get_dimension_option_metadata_list():
@@ -105,9 +104,9 @@ def test_get_dimension_option_metadata_list():
     assert result['notation'] == 'e_igov'
     assert result['parent_order'][0] == '900'
     assert result['short_label'] == 'Use of eGovernment services - enterprises'
-    assert result['source_definition'] == 'Eurostat - Community survey on ICT usage and eCommerce in Enterprises'
-    assert result['source_label'] == 'Eurostat - ICT Enterprises survey'
-    assert result['source_url'] == 'http://ec.europa.eu/eurostat/web/information-society/data/comprehensive-database'
+    assert "Eurostat" in result['source_definition']
+    assert "Eurostat" in result['source_label']
+    assert "eurostat" in result['source_url']
     assert result['uri'] == 'http://semantic.digital-agenda-data.eu/codelist/indicator/e_igov'
     assert result['definition'][0:31] == 'Use of internet for interaction'
 

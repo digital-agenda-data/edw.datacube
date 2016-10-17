@@ -14,10 +14,11 @@ WHERE {
       ( {{ uri|uri_n3 }} )
     {%- endfor %}
     }
-  OPTIONAL { ?uri <http://www.w3.org/2000/01/rdf-schema#label> ?label }
+    ?s ?p ?uri
   }
 
   UNION { ?uri skos:notation ?notation }
+  UNION { ?uri <http://www.w3.org/2000/01/rdf-schema#label> ?label }
   UNION { ?uri skos:prefLabel ?label }
   UNION { ?uri skos:altLabel ?short_label }
   UNION { ?uri skos:note ?note }
