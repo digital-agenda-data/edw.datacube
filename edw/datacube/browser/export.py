@@ -200,7 +200,7 @@ class ExportCSV(BrowserView):
         if self.request.form.get('metadata'):
             metadata = json.loads(self.request.form.pop('metadata'))
 
-        annotations = []
+        annotations = {}
         if self.request.form.get('annotations'):
             annotations = json.loads(self.request.form.pop('annotations'))
 
