@@ -64,7 +64,8 @@ class AjaxDataView(BrowserView):
 
     def get_dimensions(self):
         flat = bool(self.request.form.get('flat'))
-        dimensions = self.cube.get_dimensions(flat=flat)
+        revision = self.request.form.get('rev')
+        dimensions = self.cube.get_dimensions(flat=flat, revision=revision)
         return self.jsonify(dimensions)
 
     def revision(self):
@@ -94,10 +95,10 @@ class AjaxDataView(BrowserView):
     @eeacache(cacheKey, dependencies=['edw.datacube'])
     def dimension_options(self):
         form = dict(self.request.form)
-        form.pop('rev', None)
+        revision = form.pop('rev', None)
         dimension = form.pop('dimension')
         filters = sorted(form.items())
-        options = self.cube.get_dimension_options(dimension, filters)
+        options = self.cube.get_dimension_options(dimension, filters, revision)
         # filtered_options = filter(lambda it: it['notation'] != "", options)
         return self.jsonify({'options': options})
 

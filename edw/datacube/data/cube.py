@@ -184,7 +184,6 @@ class CubeMetadata(object):
 
         return result
 
-    @eeacache(cacheKey, dependencies=['edw.datacube'])
     def update(self):
         t0 = time.time()
         logger.info('loading cube metadata (%s)', self.cube.dataset)
@@ -370,7 +369,7 @@ class Cube(object):
         return sorted(res, key=_sort_key)
 
     @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
-    def get_dimensions(self, flat=False):
+    def get_dimensions(self, flat=False, revision=None):
         dimensions = self.metadata.get()['dimensions'].values()
         if flat:
             return dimensions
@@ -386,7 +385,7 @@ class Cube(object):
             return dict(rv)
 
     @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
-    def get_dimension_options(self, dimension, filters=[]):
+    def get_dimension_options(self, dimension, filters=[], revision=None):
         # fake an n-dimensional query, with a single dimension, that has no specific filters
         n_filters = [[]]
         return self.get_dimension_options_n(dimension, filters, n_filters)
