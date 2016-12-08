@@ -1,0 +1,16 @@
+PREFIX qb: <http://purl.org/linked-data/cube#>
+PREFIX dad-prop: <http://semantic.digital-agenda-data.eu/def/property/>
+
+SELECT DISTINCT ?uri WHERE {
+
+{% if is_group_dimension %}
+    ?observation {{ dimension_uri|uri_n3 }} ?option .
+    ?option dad-prop:membership [ dad-prop:member-of ?uri ] .
+{%- else %}
+    ?observation {{ dimension_uri|uri_n3 }} ?uri.
+{% endif %}
+  ?observation qb:dataSet {{ dataset|uri_n3 }} .
+  FILTER(isIRI(?uri))
+}
+
+LIMIT 10000

@@ -16,7 +16,7 @@ DataCubeSchema = folder.ATFolderSchema.copy() + atapi.Schema((
     atapi.TextField(
         'endpoint',
         schemata="default",
-        default="http://virtuoso.scoreboard.edw.ro/sparql",
+        default="http://test-virtuoso.digital-agenda-data.eu/sparql",
         required=True,
         default_content_type='text/plain',
         allowable_content_types=('text/plain',),
@@ -72,8 +72,22 @@ DataCubeSchema = folder.ATFolderSchema.copy() + atapi.Schema((
             format=u'select',
             label=_(u'Clone from'),
             description='Copy the charts from this DataSet'
-            )
-        ),
+        )
+    ),
+
+    atapi.ReferenceField(
+        'default_visualisation',
+        multiValued=0,
+        relationship='default_visualisation_rel',
+        languageIndependent=True,
+        allowed_types=('ScoreboardVisualization'),
+        vocabulary_factory=u'edw.datacube.vocabulary.RelatedVisualizations',
+        widget=atapi.SelectionWidget(
+            format=u'select',
+            label=_(u'Default chart'),
+            description='Search results will link to this visualisation'
+        )
+    ),
 ))
 
 # Set storage on fields copied from ATFolderSchema, making sure

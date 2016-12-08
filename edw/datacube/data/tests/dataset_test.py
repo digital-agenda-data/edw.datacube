@@ -9,7 +9,7 @@ def test_all_datasets_query_returns_the_dataset():
     dataset = {
         'uri': ('http://semantic.digital-agenda-data.eu/'
                 'dataset/digital-agenda-scoreboard-key-indicators'),
-        'title': 'Digital Agenda Scoreboard Dataset',
+        'title': ANY
     }
     assert dataset in res
 
@@ -18,7 +18,7 @@ def test_all_datasets_query_returns_the_dataset():
 def test_dataset_metadata():
     cube = create_cube()
     res = cube.get_dataset_metadata(cube.dataset)
-    assert res['title'] == "Digital Agenda Scoreboard Dataset"
+    assert "Digital Agenda" in res['title']
     #assert "You can also browse the data" in res['description']
     #assert res['license'].startswith('http://')
 
@@ -28,7 +28,20 @@ def test_dataset_dimensions_metadata():
     res = cube.get_dimensions()
     assert {'notation': 'ref-area',
             'label': "Country",
-            'comment': ANY} in res['dimension']
+            'comment': ANY,
+            'uri': "http://eurostat.linked-statistics.org/dic/geo"} in res['dimension']
+    assert {'notation': 'breakdown-group',
+            'label': "Breakdown group",
+            'comment': ANY,
+            'uri': "http://semantic.digital-agenda-data.eu/codelist/breakdown-group"} in res['dimension group']
+    assert {'notation': 'flag',
+            'label': "Flag",
+            'comment': ANY,
+            'uri': "http://eurostat.linked-statistics.org/dic/flags"} in res['attribute']
+    assert {'notation': 'obsValue',
+            'label': "Observation",
+            'comment': ANY,
+            'uri': None} in res['measure']
     notations = lambda type_label: [d['notation'] for d in res[type_label]]
     assert sorted(res) == ['attribute', 'dimension',
                            'dimension group', 'measure']
@@ -64,12 +77,11 @@ def test_get_dataset_details():
     i_iusell = by_notation['i_iusell']
     assert "selling online" in i_iusell.get('short_label', '').lower()
     assert "in the last 3 months" in i_iusell['definition']
-    assert i_iusell['groupName'] == "eCommerce"
-    assert i_iusell['sourcelabel'] == "Eurostat - ICT Households survey"
-    #assert "Extraction from HH/Indiv" in i_iusell['sourcenotes']
-    assert i_iusell['sourcelink'] == (
-            'http://ec.europa.eu/eurostat'
-            '/web/information-society/data/comprehensive-database')
+    assert i_iusell['group_name'][0] == "eCommerce"
+    assert "Eurostat" in i_iusell['source_label']
+    assert "eurostat" in i_iusell['source_url']
+    actspeed = by_notation['actspeed']
+    assert "2013" in actspeed['source_notes']
 
 @sparql_test
 def test_get_dimension_option_metadata_list():
@@ -86,24 +98,24 @@ def test_get_dimension_option_metadata_list():
     ]
     res = cube.get_dimension_option_metadata_list('indicator', uri_list)
     result = filter( lambda item: item['notation'] == 'e_igov', res)[0]
-    assert result['groupName'] == 'Discontinued indicators'
-    assert result['innerOrder'] == '25'
+    assert result['group_name'][0] == 'Discontinued indicators'
+    assert result['inner_order'][0] == '25'
     assert result['label'] == 'Enterprises interacting online with public authorities'
     assert result['notation'] == 'e_igov'
-    assert result['parentOrder'] == '900'
+    assert result['parent_order'][0] == '900'
     assert result['short_label'] == 'Use of eGovernment services - enterprises'
-    assert result['source_definition'] == 'Eurostat - Community survey on ICT usage and eCommerce in Enterprises'
-    assert result['source_label'] == 'Eurostat - ICT Enterprises survey'
-    assert result['source_url'] == 'http://ec.europa.eu/eurostat/web/information-society/data/comprehensive-database'
+    assert "Eurostat" in result['source_definition']
+    assert "Eurostat" in result['source_label']
+    assert "eurostat" in result['source_url']
     assert result['uri'] == 'http://semantic.digital-agenda-data.eu/codelist/indicator/e_igov'
     assert result['definition'][0:31] == 'Use of internet for interaction'
 
     result = filter( lambda item: item['notation'] == 'bb_penet', res)[0]
-    assert result['groupName'] == 'Broadband take-up and coverage'
-    assert result['innerOrder'] == '6'
+    assert result['group_name'][0] == 'Broadband take-up and coverage'
+    assert result['inner_order'][0] == '6'
     assert result['label'] == 'Fixed broadband take-up (subscriptions/100 people)'
     assert result['notation'] == 'bb_penet'
-    assert result['parentOrder'] == '20'
+    assert result['parent_order'][0] == '20'
     assert result['short_label'] == 'Fixed broadband take-up (penetration rate)'
     assert result['source_definition'][0:43] == 'Electronic communications market indicators'
     assert result['source_label'] == 'Communications Committee survey'

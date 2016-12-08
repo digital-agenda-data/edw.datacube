@@ -3,7 +3,7 @@ import urllib
 import urllib2
 import os
 import logging
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 import threading
 import jinja2
 import sparql
@@ -51,164 +51,233 @@ class DataCache(object):
 data_cache = DataCache()
 
 def cacheKey(method, self, *args, **kwargs):
-    """ Generate unique cache id
+    """ Generate unique cache id when self has property self.cube
     """
     return (self.cube.endpoint, self.cube.dataset)
 
 def cacheKeyCube(method, self, *args, **kwargs):
-    """ Generate unique cache id
+    """ Generate unique cache id when self is cube
     """
     return (self.endpoint, self.dataset, args, kwargs)
 
-class NotationMap(object):
-
-    # overwritten in __init__
-    # this dictionary contains for each dimension values in its codelist
-    CODELISTS = [
-        ('breakdown', 'http://semantic.digital-agenda-data.eu/'
-                      'codelist/breakdown/'),
-        ('indicator', 'http://semantic.digital-agenda-data.eu/'
-                      'codelist/indicator/'),
-        ('breakdown-group', 'http://semantic.digital-agenda-data.eu/'
-                            'codelist/breakdown-group/'),
-        ('time-period', 'http://reference.data.gov.uk/id/gregorian-year/'),
-        ('flag', 'http://eurostat.linked-statistics.org/dic/flags#'),
-        ('indicator-group', 'http://semantic.digital-agenda-data.eu/'
-                            'codelist/indicator-group/'),
-        ('unit-measure', 'http://semantic.digital-agenda-data.eu/'
-                         'codelist/unit-measure/'),
-        ('ref-area', 'http://eurostat.linked-statistics.org/dic/geo#'),
-    ]
-
-    # overwritten in __init__
-    MEASURE = 'http://purl.org/linked-data/sdmx/2009/measure#obsValue'
+class CubeMetadata(object):
 
     def __init__(self, cube):
         self.cube = cube
-        self.CODELISTS = self.build_codelists()
-        self.DIMENSIONS = {}
-        self.FQ_GROUPERS = {}
-        self.GROUPERS = {}
 
-        for item in self.cube.get_dimensions(flat=True):
-            code = item['notation']
-            uri = item['dimension']
-            if code is None:
-                code = re.split('[#/]', uri)[-1]
-            self.DIMENSIONS.update({code: uri})
-            group_notation = item['group_notation']
-            if group_notation:
-                self.GROUPERS[code] = group_notation
-                self.FQ_GROUPERS[group_notation] = uri
-            if item['type_label'] == 'measure':
-                self.MEASURE = item['dimension']
+    def get_dimension_groups(self):
+        groups = {}
+        query = sparql_env.get_template('group_dimensions.sparql').render(**{
+            'dataset': self.cube.dataset,
+        })
+        return dict([(row['dimension'], row['group_dimension'])
+            for row in self.cube._execute(query)])
 
-    @eeacache(cacheKey, dependencies=['edw.datacube'])
-    def build_codelists(self, template='codelists.sparql'):
-        query = sparql_env.get_template(template).render(
-            dataset=self.cube.dataset
-        )
-        rows = self.cube._execute(query)
-        return [(re.split('[#/]', row['dimension'])[-1], row['uri']) for row in rows]
+    def fix_notations(self, row, uri_key='uri'):
+        if not row.get('notation'):
+            row['notation'] = re.split('[#/]', row[uri_key])[-1]
+        if not row.get('label'):
+            row['label'] = row['notation']
+        if not row.get('short_label'):
+            row['short_label'] = row['label']
+
+    def load_dimensions(self):
+        # Get info for group dimensions
+        groups = self.get_dimension_groups()
+        
+        group_dimensions = {}
+        if groups:
+            query = sparql_env.get_template('dimension_info.sparql').render(**{
+                'uri_list': groups.values()
+            })
+            for row in self.cube._execute(query):
+                row['type_label'] = 'dimension group'
+                row['group_notation'] = None
+                row['group_dimension'] = None
+                self.fix_notations(row, 'dimension')
+                group_dimensions[row['dimension']] = row
+
+        # fix missing notations add group notations
+        query = sparql_env.get_template('dimensions.sparql').render(**{
+            'dataset': self.cube.dataset,
+        })
+        result = list(self.cube._execute(query))
+        dimensions = []
+        for row in result:
+            self.fix_notations(row, 'dimension')
+            if row['dimension'] in groups:
+                group_dimension = group_dimensions[groups[row['dimension']]]
+                row['group_notation'] = group_dimension['notation']
+                row['group_dimension'] = group_dimension['dimension']
+                # add group dimension info
+                dimensions.append(group_dimension)
+            else:
+                row['group_notation'] = None
+                row['group_dimension'] = None
+
+            if 'type_label' not in row:
+                types = dict([
+                    ('http://purl.org/linked-data/cube#dimension', 'dimension'),
+                    ('http://purl.org/linked-data/cube#attribute', 'attribute'),
+                    ('http://purl.org/linked-data/cube#measure', 'measure'),
+                ])
+                row['type_label'] = types.get(row['dimension_type'])
+            dimensions.append(row)
+        return OrderedDict([(row['dimension'], row) for row in dimensions])
+
+    def load_notations(self):
+        dimensions = [uri for uri, row in self.dimensions.items()
+            if row['type_label'] not in ['measure']]
+
+        result = {}
+        for dimension_uri in dimensions:
+            dimension_code = self.dimensions[dimension_uri]['notation']
+            is_group_dimension = dimension_uri in self.groupers
+            logger.info('loading notations for dimension %s', dimension_code)
+
+            # cannot use dimension_options.sparql because metadata is being loaded (lock)
+            query = sparql_env.get_template('dimension_options_raw.sparql').render(**{
+                'dataset': self.cube.dataset,
+                'dimension_uri': self.groupers[dimension_uri] if is_group_dimension else dimension_uri,
+                'is_group_dimension': is_group_dimension,
+            })
+            uri_list = [row['uri'] for row in self.cube._execute(query)]
+
+            if not uri_list:
+                # can be a dimension with literal values
+                continue
+            query = sparql_env.get_template('dimension_option_metadata.sparql').render(**{
+                'uri_list': uri_list,
+            })
+            result2 = {}
+            # Merge results (UNION is used in SPARQL)
+            for row in self.cube._execute(query):
+                uri = row['uri']
+                if not uri in result2:
+                    result2[uri] = {}
+
+                for prop in row:
+                    if row[prop] is not None:
+                        result2[uri][prop] = row[prop]
+
+            # Patch missing notations and labels
+            for row in result2.values():
+                self.fix_notations(row, 'uri')
+
+            # Load group memberships (multiple values allowed)
+            group_dimension = self.dimensions[dimension_uri]['group_notation']
+            if group_dimension:
+                query = sparql_env.get_template('dimension_option_grouping.sparql').render(**{
+                    'uri_list': result2.keys(),
+                })
+                for row in self.cube._execute(query):
+                    uri = row['uri']
+                    # Lookup parent
+                    # Notations for the group dimension are supposed to be already loaded
+                    parent = filter( lambda item: item['uri'] == row['parent_uri'], result[group_dimension])[0]
+                    result2[uri].setdefault('group_notation', []).append(parent['notation'])
+                    result2[uri].setdefault('group_name', []).append(parent['label'])
+                    result2[uri].setdefault('parent_order', []).append(parent.get('order'))
+                    result2[uri].setdefault('inner_order', []).append(row.get('inner_order'))
+
+            result[dimension_code] = result2.values()
+
+        return result
 
     def update(self):
         t0 = time.time()
-        logger.info('loading notation cache')
-        query = sparql_env.get_template('notations.sparql').render(**{
-            'dataset': self.cube.dataset,
-        })
-        by_notation = defaultdict(dict)
-        by_uri = {}
-        for row in self.cube._execute(query):
-            namespace = re.split('[#/]', row['dimension'])[-1]
-            notation = row['notation'].lower()
-            if by_notation[namespace].get(notation):
-                # notation already exists, add a hash
-                hashstr = '_' + str(abs(hash(row['uri'])) % (10 ** 4))
-                notation = notation + hashstr
-                row['notation'] = row['notation'] + hashstr
-            by_notation[namespace][notation] = row
-            by_uri[row['uri']] = row
-        logger.info('notation cache loaded, %.2f seconds', time.time() - t0)
+        logger.info('loading cube metadata (%s)', self.cube.dataset)
+        self.dimensions = self.load_dimensions()
+        logger.info('cube metadata loaded, %.2f seconds (%s)', time.time() - t0, self.cube.dataset)
+        # prepare some redundant dictionaries for convenient use
+        self.grouped_dimensions = dict([(k, v['group_dimension']) for k,v in self.dimensions.items()
+            if v['group_dimension']])
+        self.groupers = dict((v,k) for k,v in self.grouped_dimensions.items())
+        self.dimensions_by_notation = dict([(v['notation'], k) for k,v in self.dimensions.items()])
+        self.measure_uri = next( (k for k,v in self.dimensions.items()
+            if v['type_label'] == 'measure'), None)
+        t0 = time.time()
+        logger.info('loading notations (%s)', self.cube.dataset)
+        self.notations = self.load_notations()
+        logger.info('notations loaded, %.2f seconds (%s)', time.time() - t0, self.cube.dataset)
         return {
-            'by_notation': dict(by_notation),
-            'by_uri': by_uri,
+            'dimensions': self.dimensions,
+            'notations': self.notations,
+            'grouped_dimensions': self.grouped_dimensions,
+            'groupers': self.groupers,
+            'dimensions_by_notation': self.dimensions_by_notation,
+            'measure_uri': self.measure_uri,
+            'notations_by_code': {},
+            'notations_by_uri': {},
         }
 
     def get(self):
-        cache_key = (self.cube.endpoint, self.cube.dataset)
+        cache_key = (self.cube.endpoint, self.cube.dataset, self.__class__.__name__)
         return data_cache.get(cache_key, self.update)
 
-    def lookup_dimension_uri(self, dimension_code):
-        return {
-            'uri': dict(self.DIMENSIONS).get(dimension_code),
-            'namespace': dimension_code,
-            'notation': None
-        }
+    def get_all_dimensions_uri(self):
+        data = self.get()
+        return [uri for uri, row in data['dimensions'].items()
+            if row['type_label'] in ['dimension', 'dimension group']]
 
-    def lookup_dimension_uri_by_grouper(self, grouper_dimension_code):
-        return {
-            'uri': dict(self.FQ_GROUPERS).get(grouper_dimension_code),
-            'namespace': grouper_dimension_code,
-            'notation': None
-        }
+    def get_real_dimensions_and_attributes(self):
+        data = self.get()
+        return [uri for uri, row in data['dimensions'].items()
+            if row['type_label'] in ['dimension', 'attribute']]
+
+    def get_all_dimensions_and_attributes(self):
+        data = self.get()
+        return [uri for uri, row in data['dimensions'].items()
+            if row['type_label'] not in ['measure']]
+
+    def lookup_dimension_code(self, dimension_uri):
+        data = self.get()
+        return data['dimensions'][dimension_uri]['notation']
+
+    def lookup_dimension_uri(self, dimension_code):
+        data = self.get()
+        return data['dimensions_by_notation'][dimension_code]
+
+    def lookup_dimension_uri_by_grouper_uri(self, grouper_dimension):
+        data = self.get()
+        return data['groupers'][grouper_dimension]
 
     def lookup_measure_uri(self):
-        return self.MEASURE
-
-    def lookup_notation(self, namespace, notation):
         data = self.get()
-        notation = notation.lower()
-        ns = data['by_notation'].get(namespace)
-        if ns is None:
-            ns = data['by_notation'][namespace]={}
-        rv = ns.get(notation)
-        if rv is None:
-            base_uri = dict(self.CODELISTS).get(namespace)
-            if namespace not in ['ref-area'] and base_uri is not None:
-                if base_uri[-1] not in ('/', '#'):
-                    base_uri += '/'
-                rv = self._add_item(data, base_uri + notation, namespace, notation)
-            else:
-                logger.warn('lookup failure %r', (namespace, notation))
-        return rv
+        return data['measure_uri']
 
-    def lookup_uri(self, uri):
-        by_uri = self.get()['by_uri']
-        return by_uri.get(uri)
-
-    @staticmethod
-    def _add_item(data, uri, namespace, notation):
-        logger.warn('patching namespace %r with missing notation %r for uri %r' %(namespace, notation, uri))
-        if not data['by_notation'].get(namespace):
-            data['by_notation'][namespace] = {}
-        if data['by_notation'][namespace].get(notation):
-            # notation already exists, add a hash
-            notation = notation + '_' + str(abs(hash(uri)) % (10 ** 4))
-        row = {'uri': uri,
-               'namespace': namespace,
-               'notation': notation}
-        data['by_uri'][uri] = row
-        data['by_notation'][namespace][notation] = row
-
-        return row
-
-    def touch_uri(self, uri, dimension):
+    def lookup_notation(self, dimension_code, notation):
         data = self.get()
-        if uri not in data['by_uri']:
-            prefix = dict(self.CODELISTS)[dimension]
-            if not prefix:
-                prefix = '/'.join(re.split('[#/]', uri)[:-1]) + '/'
-            if uri.startswith(prefix):
-                if uri[len(prefix):].startswith('/') or uri[len(prefix):].startswith('#'):
-                    prefix = prefix + uri[len(prefix)]
-                notation = uri[len(prefix):]
-                self._add_item(data, uri, dimension, notation.lower())
-            else:
-                logger.warn('new unknown uri %r', uri)
-                notation = re.split('[#/]', uri)[-1]
-                self._add_item(data, uri, dimension, notation.lower())
+        result = filter( lambda item: item['notation'].lower() == notation.lower(),
+                       data['notations'][dimension_code])
+        if not result:
+            logger.error('Notation not found: {}[{}]'.format(dimension_code, notation))
 
+        return result[0]
+
+    def lookup_metadata(self, dimension_code, uri):
+        data = self.get()
+        results = filter(lambda item: item['uri'] == uri, data['notations'][dimension_code])
+        if not results:
+            logger.error('Metadata for %s not found in %s[%s]', uri, self.cube.dataset, dimension_code)
+            return None
+        return results[0]
+
+    def lookup_dimension_info(self, dimension_uri):
+        data = self.get()
+        return data['dimensions'][dimension_uri]
+
+    def is_group_dimension(self, dimension_uri):
+        data = self.get()
+        return dimension_uri in data['groupers']
+
+    def is_grouped_dimension(self, dimension_uri):
+        data = self.get()
+        return dimension_uri in data['grouped_dimensions']
+
+    def lookup_grouper_dimension(self, dimension_uri):
+        data = self.get()
+        return data['grouped_dimensions'][dimension_uri]
 
 class Cube(object):
 
@@ -216,26 +285,35 @@ class Cube(object):
         self.endpoint = endpoint
         self.dataset = dataset
         if dataset:
-            self.notations = NotationMap(self)
+            self.metadata = CubeMetadata(self)
 
     def _execute(self, query, as_dict=True):
         t0 = time.time()
+        query_id = hash(query)
         if SPARQL_DEBUG:
-            logger.info('Running query: \n%s', query)
+            logger.info('Running query [%d]: \n%s', query_id, query)
         try:
             query_object = sparql.Service(self.endpoint).createQuery()
             query_object.method = 'POST'
-            res = query_object.query(query)
+            # 30 seconds should be a reasonable timeout
+            res = query_object.query(query, timeout=30)
         except urllib2.HTTPError, e:
             if SPARQL_DEBUG:
-                logger.info('Query failed')
+                logger.error('Query failed [%d]', query_id)
             if 400 <= e.code < 600:
                 raise QueryError(e.fp.read())
             else:
                 raise
+        except sparql.SparqlException as e:
+            if SPARQL_DEBUG:
+                logger.error('Query failed [%d]', query_id)
+            raise
+            raise
         if SPARQL_DEBUG:
-            logger.info('Query took %.2f seconds.', time.time() - t0)
+            logger.info('Query [%d] took %.2f seconds.', query_id, time.time() - t0)
         rv = (sparql.unpack_row(r) for r in res)
+        if SPARQL_DEBUG:
+            logger.info('Parsing response [%d] took %.2f seconds.', query_id, time.time() - t0)
         if as_dict:
             return (dict(zip(res.variables, r)) for r in rv)
         else:
@@ -251,8 +329,10 @@ class Cube(object):
         })
         return list(self._execute(query))[0]
 
+    def get_dimension_metadata(self):
+        return self.metadata.get()['notations']
+
     def get_dataset_details(self):
-        #sparql_template = 'dataset_details.sparql'
         sparql_template = 'indicator_time_coverage.sparql'
         query = sparql_env.get_template(sparql_template).render(**{
             'dataset': self.dataset,
@@ -260,99 +340,53 @@ class Cube(object):
 
         # indicator, maxYear, minYear
         res = list(self._execute(query))
-        res_by_uri = {row['indicator']: row for row in res}
-
+        res_by_uri = {row['indicator']: row for row in res if row['indicator']}
         meta_list = self.get_dimension_option_metadata_list(
             'indicator', list(res_by_uri)
         )
 
         for meta in meta_list:
-            uri = meta.pop('uri', None)
-            #meta['altlabel'] = meta.pop('short_label', None)
-            meta['sourcelabel'] = meta.pop('source_label', None)
-            meta['sourcelink'] = meta.pop('source_url', None)
-            meta['sourcenotes'] = meta.pop('source_notes', None)
-            meta['notes'] = meta.pop('note', None)
-            meta['longlabel'] = meta.pop('label', None)
+            uri = meta.get('uri', None)
+            #meta['sourcelabel'] = meta.get('source_label', None)
+            #meta['sourcelink'] = meta.get('source_url', None)
+            #meta['sourcenotes'] = meta.get('source_notes', None)
+            #meta['notes'] = meta.get('note', None)
+            #meta['longlabel'] = meta.get('label', None)
             res_by_uri[uri].update(meta)
 
 
         def _sort_key(item):
             try:
-                parent = int(item.get('parentOrder', None))
+                parent = int(item.get('parent_order', ['9999'])[0])
             except (ValueError, TypeError):
                 parent = 9999
             try:
-                inner = int(item.get('innerOrder', None))
+                inner = int(item.get('inner_order', ['9999'])[0])
             except (ValueError, TypeError):
                 inner = 9999
-            return (parent, item.get('groupName', None), inner)
+            return (parent, item.get('group_name', [None])[0], inner)
 
         return sorted(res, key=_sort_key)
 
-    def get_dimension_labels(self, dimension, value):
-        query = sparql_env.get_template('dimension_label.sparql').render(**{
-            'dataset': self.dataset,
-            'dimension': dimension,
-            'value': value,
-            'group_dimensions': self.get_group_dimensions(),
-            'notations': self.notations,
-        })
-        rv = list(self._execute(query))
-        if not rv:
-            return [{'notation': value, 'label': value, 'short_label': None}]
-        else:
-            for x in rv:
-                x.update({'notation': value})
-            return rv
-
-    def fix_notations(self, row):
-        if not row['notation']:
-            row['notation'] = re.split('[#/]', row['dimension'])[-1]
-        if not row['label']:
-            row['label'] = row['notation']
-        types = dict([
-            ('http://purl.org/linked-data/cube#dimension', 'dimension'),
-            ('http://purl.org/linked-data/cube#attribute', 'attribute'),
-            ('http://semantic.digital-agenda-data.eu/def/property/dimension-group', 'dimension group'),
-            ('http://purl.org/linked-data/cube#measure', 'measure'),
-        ])
-        row['type_label'] = types.get(row['dimension_type'], 'dimension')
-
     @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
-    def get_dimensions(self, flat=False):
-        query = sparql_env.get_template('dimensions.sparql').render(**{
-            'dataset': self.dataset,
-        })
-        result = list(self._execute(query))
-        for row in result:
-            self.fix_notations(row)
+    def get_dimensions(self, flat=False, revision=None):
+        dimensions = self.metadata.get()['dimensions'].values()
         if flat:
-            return result
+            return dimensions
         else:
             rv = defaultdict(list)
-            for row in result:
+            for row in dimensions:
                 rv[row['type_label']].append({
                     'label': row['label'],
                     'notation': row['notation'],
                     'comment': row['comment'] or row['dimension'],
+                    'uri': row['uri'],
                 })
             return dict(rv)
 
     @eeacache(cacheKeyCube, dependencies=['edw.datacube'])
-    def load_group_dimensions(self):
-        query = sparql_env.get_template('group_dimensions.sparql').render(**{
-            'dataset': self.dataset,
-        })
-        return sorted([r['group_notation'] for r in self._execute(query)])
-
-    def get_group_dimensions(self):
-        cache_key = (self.endpoint, self.dataset, 'get_group_dimensions')
-        return data_cache.get(cache_key, self.load_group_dimensions)
-
-    def get_dimension_options(self, dimension, filters=[]):
-        # fake an n-dimensional query, with a single dimension, that has no
-        # specific filters
+    def get_dimension_options(self, dimension, filters=[], revision=None):
+        # fake an n-dimensional query, with a single dimension, that has no specific filters
         n_filters = [[]]
         return self.get_dimension_options_n(dimension, filters, n_filters)
 
@@ -363,24 +397,12 @@ class Cube(object):
         n_datasets = [x_dataset, y_dataset] if x_dataset and y_dataset else []
         return self.get_dimension_options_n(dimension, filters, n_filters, n_datasets)
 
-    def get_other_labels(self, uri):
-        if '#' in uri:
-            uri_label = uri.split('#')[-1]
-        else:
-            uri_label = uri.split('/')[-1]
-        return { "group_notation": None,
-                 "label": uri_label,
-                 "notation": uri_label,
-                 "short_label": None,
-                 "uri": uri,
-                 "order": None }
-
     def get_dimension_options_xyz(self, dimension,
                                   filters, x_filters, y_filters, z_filters):
         n_filters = [x_filters, y_filters, z_filters]
         return self.get_dimension_options_n(dimension, filters, n_filters)
 
-    def get_dimension_options_n(self, dimension, filters, n_filters, n_datasets=[]):
+    def get_dimension_options_n(self, dimension_code, filters, n_filters, n_datasets=[]):
         common_uris = None
         result_sets = []
         intervals = []
@@ -388,6 +410,7 @@ class Cube(object):
         uri_list = None
         distinct_types = False
         comparator = None
+        dimension_uri = self.metadata.lookup_dimension_uri(dimension_code)
 
         for idx, extra_filters in enumerate(n_filters):
             if n_datasets:
@@ -396,10 +419,9 @@ class Cube(object):
                 dataset = self.dataset
             query = sparql_env.get_template('dimension_options.sparql').render(**{
                 'dataset': dataset,
-                'dimension_code': dimension,
+                'dimension_uri': dimension_uri,
                 'filters': filters + extra_filters,
-                'group_dimensions': self.get_group_dimensions(),
-                'notations': self.notations,
+                'metadata': self.metadata,
             })
             result_sets.append(list(self._execute(query)))
 
@@ -427,7 +449,7 @@ class Cube(object):
             else:
                 uri_list = uri_list | res
                 common_uris = common_uris & res
-        if dimension == 'time-period' and distinct_types:
+        if dimension_code == 'time-period' and distinct_types:
             # Query the intervals
             query_intervals = sparql_env.get_template('dimension_options_intervals.sparql').render(**{
                 'uri_list': uri_list,
@@ -443,131 +465,86 @@ class Cube(object):
                 # get years from merged_intervals
                 years = []
                 for option in options(res):
-                  # search in merged_intervals
-                  interval = filter(lambda interval:interval['uri'] == option, merged_intervals)
-                  if ( interval == [] ):
-                      # this was a year, not present in merged_intervals
-                      years.append(option)
-                  else:
-                      years.append(interval[0]['parent_year'])
+                    # search in merged_intervals
+                    interval = filter(lambda interval:interval['uri'] == option, merged_intervals)
+                    if ( interval == [] ):
+                        # this was a year, not present in merged_intervals
+                        years.append(option)
+                    else:
+                        years.append(interval[0]['parent_year'])
                 if common_uris is None:
                     common_uris = set(years)
                 else:
                     common_uris = common_uris & set(years)
-        data = []
-        for uri in common_uris:
-            data.append((uri, dimension))
+        #data = []
+        #for uri in common_uris:
+        #    data.append((uri, dimension_code))
 
-        # duplicates - e.g. when a breakdown is member of several breakdown groups
-        labels1 = self.get_labels_with_duplicates(data)
-        if labels1:
-            labels1.sort(key=lambda item: int(item.pop('order') or '0'))
-            # filter labels1 by group_notation if present in filters
-            if dimension in self.notations.GROUPERS.keys():
-                group_dimension = self.notations.GROUPERS[dimension]
-                filtered_group = next((value for dimension, value in filters if dimension == group_dimension), None)
-                if filtered_group:
-                    labels1 = [x for x in labels1 if x['group_notation'] == filtered_group]
-        return labels1
-        #rv = [labels.get(uri, self.get_other_labels(uri)) for uri in common_uris]
-        #rv.sort(key=lambda item: int(item.pop('order') or '0'))
-        #return rv
-
-    def get_dimension_codelist(self, dimension):
-        query = sparql_env.get_template('codelist_values.sparql').render(**{
-            'dataset': self.dataset,
-            'dimension_code': dimension,
-            'notations': self.notations,
-        })
-        result = [row for row in self._execute(query)]
-        return result
-
-    def get_labels_with_duplicates(self, data):
-        if len(data) < 1:
-            return {}
-        tmpl = sparql_env.get_template('labels.sparql')
-        uri_list = []
-        for item in data:
-            # item = (uri, dimension)
-            self.notations.touch_uri(item[0], item[1])
-            uri_list.append(item[0])
-        query = tmpl.render(**{
-            'uri_list': uri_list,
-        })
-        #result = [row for row in self._execute(query)]
+        # need to handle duplicates - e.g. when a breakdown is member of several breakdown groups
         result = []
-        for row in self._execute(query):
-            # make sure the notation is patched
-            # see handling of duplicates in _add_item
-            patched = self.notations.lookup_uri(row['uri'])
-            if patched:
-                row['notation'] = patched['notation']
-            result.append(row)
-        found_uris = {row['uri'] for row in result}
-        for uri in uri_list:
-            if uri not in found_uris:
-                #add default labels for missing uris
-                patched = self.notations.lookup_uri(uri)
-                if patched:
-                    notation = patched['notation']
-                else:
-                    notation = re.split('[#/]', uri)[-1]
-                result.append({
-                    'uri': uri,
-                    'group_notation': None,
-                    'notation': notation,
-                    'short_label': notation,
-                    'label': notation,
-                    'order': None,
-                    'inner_order': 1
-                })
+        filtered_group = None
+
+        for uri in common_uris:
+            meta = self.metadata.lookup_metadata(dimension_code, uri)
+            obj = {'uri': meta['uri'],
+                   'notation': meta['notation'],
+                   'label': meta['label'],
+                   'short_label': meta['short_label'],
+                   'order': meta.get('order', 0),
+                  }
+            # if there is a filter by group_notation, keep only those rows
+            if not self.metadata.is_grouped_dimension(dimension_uri):
+                # Simply add this row if not grouped
+                result.append(obj)
+                continue
+            else:
+                if not meta.get('group_notation'):
+                    # it's still possible to have orphan rows without a group, show them last
+                    newobj = obj.copy()
+                    newobj.update({
+                        'order': 9999,
+                        'inner_order': 9999,
+                        'parent_order': 9999,
+                        'group_name': 'Other',
+                        'group_notation': 'Other',
+                        })
+                    result.append(newobj)
+                    continue
+                grouper_dimension = self.metadata.lookup_grouper_dimension(dimension_uri)
+                grouper_notation = self.metadata.lookup_dimension_code(grouper_dimension)
+                filtered_group = next((value for dimension, value in filters if dimension == grouper_notation), None)
+                # If grouped, add one row for each parent group
+                for idx, group_notation in enumerate(meta['group_notation']):
+                    if filtered_group and group_notation != filtered_group:
+                        continue
+                    newobj = obj.copy()
+                    newobj.update({
+                        'group_notation': group_notation,
+                        'group_name': meta['group_name'][idx],
+                        'inner_order': meta['inner_order'][idx],
+                        'parent_order': meta['parent_order'][idx],
+                        'order': meta['inner_order'][idx],
+                        })
+                    result.append(newobj)
+
+        result.sort(key=lambda item: int(item.get('order') or '0'))
         return result
 
-    def get_labels(self, data):
-        result = self.get_labels_with_duplicates(data)
-        labels = {row['uri']:row for row in result}
-        #uri_list = [item[0] for item in data]
-        return labels
+    def get_dimension_codelist(self, dimension_code):
+        # list of {?uri ?notation ?label}
+        # TODO possibly refactor
+        return self.get_dimension_metadata()[dimension_code]
 
-    def get_dimension_option_metadata_list(self, dimension, uri_list):
-        if not uri_list:
-            return []
-        tmpl = sparql_env.get_template('dimension_option_metadata.sparql')
-        query = tmpl.render(**{
-            'dataset': self.dataset,
-            'uri_list': uri_list,
-            'dimension': dimension
-        })
-        res = list(self._execute(query))
-        result = {}
-        for row in res:
-            uri = row['uri']
-            if uri in result:
-                obj = result[uri]
-            else:
-                result[uri] = obj = {}
+    def get_dimension_option_metadata_list(self, dimension_code, uri_list):
+        return [self.metadata.lookup_metadata(dimension_code, uri) for uri in uri_list]
 
-            for prop in row:
-                 if row[prop] is not None:
-                    obj[prop] = row[prop]
-            #import pytest;pytest.set_trace();
-
-        #result = [{k: row[k] for k in row if row[k] is not None} for row in res]
-        return result.values()
-
-    def get_dimension_option_metadata(self, dimension, option):
-        uri = self.notations.lookup_notation(dimension, option)['uri']
-        res = self.get_dimension_option_metadata_list(dimension, [uri])
-        if res:
-            return res[0]
-        else:
-            return {}
+    def get_dimension_option_metadata(self, dimension_code, option):
+        return self.metadata.lookup_notation(dimension_code, option)
 
     def get_columns(self):
         columns_map = {}
-        for item in self.get_dimensions(flat=True):
-            if item['type_label'] in ['measure', 'dimension group']:
-                continue
+        for dimension in self.metadata.get_real_dimensions_and_attributes():
+            item = self.metadata.lookup_dimension_info(dimension)
             name = item['notation']
             if name not in columns_map:
                 columns_map[name] = {
@@ -576,25 +553,26 @@ class Cube(object):
                     "notation": item['notation'],
                     "name": name,
                 }
-            if item['type_label'] != 'attribute':
+            if item['type_label'] == 'dimension':
                 columns_map[name]['optional'] = False
         return columns_map.values()
 
     def get_observations(self, filters):
+        # returns a generator, see _format_observations_result
         columns = self.get_columns()
         query = sparql_env.get_template('data_and_attributes.sparql').render(**{
             'dataset': self.dataset,
             'columns': columns,
             'filters': filters,
-            'group_dimensions': self.get_group_dimensions(),
-            'notations': self.notations,
+            'metadata': self.metadata,
         })
         result = list(self._execute(query, as_dict=False))
+        # Keep only URI's in data, to lookup additional metadata attributes
         def reducer(memo, item):
             def uri_filter(x):
-                if x[0]:
-                    return True if x[0].startswith('http://') else False
-            x = [(uri, columns[i]['notation']) for i, uri in enumerate(item[:-1])]
+                return True if x and x.startswith('http://') else False
+            # last element is supposed to be the value, always a literal
+            x = [uri for uri in item[:-1]]
             return memo.union(set(filter(uri_filter, x)))
 
         data = reduce(reducer, result, set())
@@ -602,25 +580,23 @@ class Cube(object):
         return self._format_observations_result(result, column_names, data)
 
     def _format_observations_result(self, result, columns, data):
-        labels = self.get_labels(data)
+        # Append extra metadata e.g. notation, label etc.
+        # data is set of (code_uri, dimension_code)
         for row in result:
             result_row = []
             value = row.pop(-1)
-            for item in row:
-                #if item not in uris:
-                if item not in map(lambda x: x[0], data):
+            for idx, item in enumerate(row):
+                if item not in data:
+                    # this is not an URI
                     result_row.append(item)
                 else:
-                    notation = labels.get(item, {}).get('notation', None)
-                    label = labels.get(item, {}).get('label', None)
-                    if notation is None:
-                        notation = self.get_other_labels(item).get('notation', None)
-                        label = self.get_other_labels(item).get('label', None)
+                    # this is an URI, add as dict
+                    meta = self.metadata.lookup_metadata(columns[idx], item)
                     result_row.append(
-                        {'notation': notation,
-                         'inner_order': labels.get(item, {}).get('inner_order', None),
-                         'label': label,
-                         'short-label': labels.get(item, {}).get('short_label', None)}
+                        {'notation': meta['notation'],
+                         'inner_order': meta.get('inner_order', 0),
+                         'label': meta['label'],
+                         'short-label': meta['short_label'],}
                     )
             if type(value) == type(Decimal()):
                 value = float(value)
@@ -636,28 +612,30 @@ class Cube(object):
         for item in whitelist_items:
             mapped_item = {}
             if item['indicator-group'].lower() == indicator_group.lower():
-                for n, col in enumerate(columns, 1):
-                    name = col['notation']
-                    if name in ['indicator', 'breakdown', 'unit-measure']:
-                        mapped_item[n] = self.notations.lookup_notation(
-                                            name, item[name])['uri']
-                whitelist.append(mapped_item)
+                try:
+                  for n, col in enumerate(columns, 1):
+                      name = col['notation']
+                      if name in ['indicator', 'breakdown', 'unit-measure']:
+                          mapped_item[n] = self.metadata.lookup_notation(name, item[name])['uri']
+                      whitelist.append(mapped_item)
+                except IndexError:
+                    # do not append in whitelist missing notations
+                    pass
         if not whitelist:
             return []
         query = sparql_env.get_template('data_and_attributes_cp.sparql').render(**{
             'dataset': self.dataset,
             'columns': columns,
             'filters': filters,
-            'group_dimensions': self.get_group_dimensions(),
-            'notations': self.notations,
+            'metadata': self.metadata,
             'whitelist': whitelist,
         })
         result = list(self._execute(query, as_dict=False))
         def reducer(memo, item):
             def uri_filter(x):
-                if x[0]:
-                    return True if x[0].startswith('http://') else False
-            x = [(uri, columns[i]['notation']) for i, uri in enumerate(item[:-1])]
+                # last element is supposed to be the value, always a literal
+                return True if x and x.startswith('http://') else False
+            x = [uri for uri in item[:-1]]
             return memo.union(set(filter(uri_filter, x)))
 
         data = reduce(reducer, result, set())
@@ -668,8 +646,7 @@ class Cube(object):
         n_filters = [x_filters, y_filters]
         return self.get_data_n(join_by, filters, n_filters)
 
-    def get_data_xyz(self, join_by, filters, x_filters, y_filters,
-                     z_filters):
+    def get_data_xyz(self, join_by, filters, x_filters, y_filters, z_filters):
         n_filters = [x_filters, y_filters, z_filters]
         return self.get_data_n(join_by, filters, n_filters)
 
@@ -686,8 +663,7 @@ class Cube(object):
                 'dataset': self.dataset,
                 'columns': columns,
                 'filters': filters + list(extra_filters),
-                'group_dimensions': self.get_group_dimensions(),
-                'notations': self.notations,
+                'metadata': self.metadata,
             })
             container = {}
             data = self._execute(query, as_dict=False)
@@ -726,9 +702,6 @@ class Cube(object):
                         if isinstance(value, basestring) and value.startswith('http://'):
                             data.add((value, key))
 
-        # GET LABELS FOR URIS
-        labels = self.get_labels(data)
-
         filtered_data = []
         # EXTRACT COMMON ROWS
         dimensions = ['x', 'y', 'z']
@@ -744,17 +717,17 @@ class Cube(object):
                         out[key] = obs[key]
                 for k, v in out.items():
                     if k not in single_keys:
-                        uri_labels = labels.get(v[dimensions[idx]], v[dimensions[idx]])
-                        if uri_labels:
-                            out[k][dimensions[idx]] = uri_labels
+                        #uri = v[dimensions[idx]]
+                        # dimensions[idx] is x, y, z
+                        # v is dict {x: xval, y:yval }
+                        if (v[dimensions[idx]], k) in data:
+                            # This should be an URI, replace with metadata
+                            out[k][dimensions[idx]] = self.metadata.lookup_metadata(k, v[dimensions[idx]])
                     else:
-                        uri_labels = labels.get(v, None)
-                        if uri_labels:
-                            out[k] = uri_labels
+                        out[k] = self.metadata.lookup_metadata(k, v)
                 idx+=1
             filtered_data.append(out)
         return filtered_data
-
 
     def get_revision(self):
         query = sparql_env.get_template('last_modified.sparql').render()
@@ -765,21 +738,7 @@ class Cube(object):
         data_cache.ping(timestamp)
         return timestamp
 
-    def dump(self, data_format=''):
-        query = sparql_env.get_template('dump.sparql').render(**{
-            'dataset': self.dataset,
-            'notations': self.notations
-        })
-        if data_format:
-            params = urllib.urlencode({
-                'query': query,
-                'format': data_format,
-            })
-            result = urllib2.urlopen(self.endpoint, data=params)
-            return result.read()
-        return self._execute(query)
-
-    def dump_constructs(self, format='application/rdf+xml',
+    def dump_constructs(self, format='text/turtle',
                         template='construct_codelists.sparql'):
         """
         Sends queries directly to the endpoint.
@@ -787,10 +746,20 @@ class Cube(object):
         """
 
         query = sparql_env.get_template(template).render(**{
-            'dataset': self.dataset
+            'dataset': self.dataset,
+            'dimensions': self.metadata.get_all_dimensions_and_attributes()
         })
+        if SPARQL_DEBUG:
+            logger.info('Running SPARQL construct:\n%s.', query)
         data = urllib.urlencode({
             'query': query,
             'format': format
         })
         return urllib2.urlopen(self.endpoint, data=data).read()
+
+    def search_indicators(self, words):
+        search = ' and '.join(["'{0}'".format(word) for word in words])
+        query = sparql_env.get_template('search.sparql').render(**{
+            'search': search,
+        })
+        return self._execute(query)

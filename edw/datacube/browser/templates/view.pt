@@ -2,7 +2,7 @@
   i18n:domain="plone">
 
   <div metal:fill-slot="content-title" class="row">
-    <div class="col-md-12">
+    <div class="heading-wrapper">
       <h1 class="documentFirstHeading" tal:content="context/getExtended_title"></h1>
     </div>
   </div>
@@ -120,10 +120,7 @@
                 <a href="@@codelists" rel="nofollow">Codelists</a>
             </li>
             <li>
-                <a href="@@structure" rel="nofollow">Structure</a>
-            </li>
-            <li>
-                <a href="@@get_dataset_metadata" rel="nofollow">Dataset metadata</a>
+                <a href="@@get_dataset_metadata" rel="nofollow">Dataset metadata and structure</a>
             </li>
         </ul>
       </div>

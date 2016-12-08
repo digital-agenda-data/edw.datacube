@@ -2,8 +2,8 @@
 """
 
 
-DATACUBE_THUMBNAIL = u"++resource++scoreboard.theme.images/connect_thumbnail.png"
-VISUALIZATION_THUMBNAIL = u"++resource++scoreboard.theme.images/map_thumbnail.png"
+DATACUBE_THUMBNAIL = u"++resource++scoreboard.theme.images/generic_thumbnail_for_datasets.png"
+VISUALIZATION_THUMBNAIL = u"++resource++scoreboard.theme.images/column_chart.png"
 
 
 DEFAULT_SPARQL_ENDPOINT = u"http://virtuoso.scoreboard.edw.ro/sparql"

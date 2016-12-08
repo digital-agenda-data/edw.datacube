@@ -38,30 +38,6 @@
     />
 
   <browser:page
-    name="data-rdf"
-    for="..interfaces.IDataCube"
-    permission="zope2.View"
-    class=".query.AjaxDataView"
-    attribute="dump_rdf"
-    />
-
-  <browser:page
-    name="tsv"
-    for="..interfaces.IDataCube"
-    permission="zope2.View"
-    class=".query.AjaxDataView"
-    attribute="download_tsv"
-    />
-
-  <browser:page
-    name="csv"
-    for="..interfaces.IDataCube"
-    permission="zope2.View"
-    class=".query.AjaxDataView"
-    attribute="download_csv"
-    />
-
-  <browser:page
     name="dataset_metadata"
     for="..interfaces.IDataCube"
     permission="zope2.View"
@@ -94,18 +70,18 @@
     />
 
   <browser:page
-    name="revision"
+    name="dimension_metadata"
     for="..interfaces.IDataCube"
     class=".query.AjaxDataView"
-    attribute="revision"
+    attribute="dimension_metadata"
     permission="zope2.View"
     />
 
   <browser:page
-    name="dimension_labels"
+    name="revision"
     for="..interfaces.IDataCube"
     class=".query.AjaxDataView"
-    attribute="dimension_labels"
+    attribute="revision"
     permission="zope2.View"
     />
 
@@ -146,14 +122,6 @@
     for="..interfaces.IDataCube"
     class=".query.AjaxDataView"
     attribute="dimension_options_cp"
-    permission="zope2.View"
-    />
-
-  <browser:page
-    name="dimension_value_metadata"
-    for="..interfaces.IDataCube"
-    class=".query.AjaxDataView"
-    attribute="dimension_value_metadata"
     permission="zope2.View"
     />
 

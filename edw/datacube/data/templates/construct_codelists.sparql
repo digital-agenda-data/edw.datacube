@@ -5,9 +5,12 @@ CONSTRUCT {
 ?uri ?p ?o
 }
 WHERE {
-  {{ dataset|uri_n3 }} qb:structure ?structure .
-  ?structure qb:component [?type ?dimension] .
   ?dimension qb:codeList [ skos:hasTopConcept ?uri ] .
+  FILTER (
+  {%- for dimension in dimensions %}
+     ?dimension = {{ dimension|uri_n3 }}
+     {%- if not loop.last %} || {% endif %}
+  {%- endfor %}
+  )
   ?uri ?p ?o
-
-} 
+}

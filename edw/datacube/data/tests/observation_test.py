@@ -14,6 +14,9 @@ def test_get_same_observation_in_two_dimensions():
     points = list(cube.get_data_xy('ref-area', filters, [], []))
     assert len(points) == 1
     assert points[0]['value'] == {'x': 0.222202, 'y': 0.222202}
+    assert points[0]['indicator']['notation'] == 'i_bfeu'
+    assert points[0]['indicator']['short_label'] == 'Cross-border eCommerce'
+
 
 @sparql_test
 def test_get_observations_with_labels_xy():
@@ -81,6 +84,8 @@ def test_get_xy_observations_with_all_breakdowns():
     points = list(cube.get_data_xy('ref-area', filters, x_filters, y_filters))
     assert points[0]['indicator']['label'].startswith(
         'Individuals ordering goods')
+    assert points[0]['breakdown']['x']['short_label'] == 'All individuals'
+    assert points[0]['breakdown']['y']['short_label'] == 'All individuals'
 
 
 @sparql_test
@@ -158,15 +163,15 @@ def test_get_observations_cp():
                 ('time-period', '2013')
               ]
     whitelist=[
-        {'indicator-group': 'internet-usage', 'indicator': 'h_iacc', 'breakdown': 'hh_total', 'unit-measure': 'pc_hh'},
-        {'indicator-group': 'internet-usage', 'indicator': 'i_ia12ave', 'breakdown': 'y16_24', 'unit-measure': 'ia12ave'},
-        {'indicator-group': 'internet-usage', 'indicator': 'i_ia12ave', 'breakdown': 'y25_54', 'unit-measure': 'ia12ave'},
-        {'indicator-group': 'internet-usage', 'indicator': 'i_ia12ave', 'breakdown': 'y55_74', 'unit-measure': 'ia12ave'},
-        {'indicator-group': 'internet-usage', 'indicator': 'i_iday', 'breakdown': 'ind_total', 'unit-measure': 'pc_ind'},
-        {'indicator-group': 'internet-usage', 'indicator': 'i_iumc', 'breakdown': 'ind_total', 'unit-measure': 'pc_ind'},
-        {'indicator-group': 'internet-usage', 'indicator': 'i_iuse', 'breakdown': 'ind_total', 'unit-measure': 'pc_ind'},
+        {'indicator-group': 'internet-usage', 'indicator': 'h_iacc', 'breakdown': 'HH_total', 'unit-measure': 'pc_hh'},
+        {'indicator-group': 'internet-usage', 'indicator': 'i_ia12ave', 'breakdown': 'Y16_24', 'unit-measure': 'ia12ave'},
+        {'indicator-group': 'internet-usage', 'indicator': 'i_ia12ave', 'breakdown': 'Y25_54', 'unit-measure': 'ia12ave'},
+        {'indicator-group': 'internet-usage', 'indicator': 'i_ia12ave', 'breakdown': 'Y55_74', 'unit-measure': 'ia12ave'},
+        {'indicator-group': 'internet-usage', 'indicator': 'i_iday', 'breakdown': 'IND_TOTAL', 'unit-measure': 'pc_ind'},
+        {'indicator-group': 'internet-usage', 'indicator': 'i_iumc', 'breakdown': 'IND_TOTAL', 'unit-measure': 'pc_ind'},
+        {'indicator-group': 'internet-usage', 'indicator': 'i_iuse', 'breakdown': 'IND_TOTAL', 'unit-measure': 'pc_ind'},
         {'indicator-group': 'internet-usage', 'indicator': 'i_iuse', 'breakdown': 'rf_ge1', 'unit-measure': 'pc_ind'},
-        {'indicator-group': 'internet-usage', 'indicator': 'i_iux', 'breakdown': 'ind_total', 'unit-measure': 'pc_ind'}
+        {'indicator-group': 'internet-usage', 'indicator': 'i_iux', 'breakdown': 'IND_TOTAL', 'unit-measure': 'pc_ind'}
     ]
     result = list(cube.get_observations_cp(filters, whitelist))
     assert len(result) == 9
@@ -175,3 +180,22 @@ def test_get_observations_cp():
     assert h_iacc['indicator']['label'].startswith('Households with access to the Internet at home')
     assert h_iacc['indicator']['short-label'].startswith('Households with access to the Internet at home')
     assert len(filter(lambda item: item['indicator']['notation'] == 'i_ia12ave', result)) == 3
+
+@sparql_test
+def test_get_observations_cp2():
+    # Should not raise IndexError: list index out of range becuase of lowercase IND_TOTAL
+    cube = create_cube()
+    filters = [ ('indicator-group', 'eHealth'),
+                ('ref-area', 'BE'),
+                ('time-period', '2014')
+              ]
+    whitelist=[
+        {'indicator-group': 'ehealth', 'indicator': 'I_IUMAPP', 'breakdown': 'ind_total', 'unit-measure': 'pc_ind_iu3'},
+        {'indicator-group': 'ehealth', 'indicator': 'i_ihif', 'breakdown': 'ind_total', 'unit-measure': 'pc_ind_iu3'}
+    ]
+    result = list(cube.get_observations_cp(filters, whitelist))
+    assert len(result) == 1
+    i_ihif = filter(lambda item: item['indicator']['notation'] == 'I_IUMAPP', result)[0]
+    assert i_ihif['value'] == 0.218317
+    assert i_ihif['indicator']['label'].startswith('making an appointment with a practitioner via a website')
+    assert i_ihif['indicator']['short-label'].startswith('Appointment with a practitioner via a website')

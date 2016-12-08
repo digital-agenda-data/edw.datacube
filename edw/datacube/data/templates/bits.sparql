@@ -1,9 +1,9 @@
 {% macro one_filter(observation, prefix, dimension_code, option_code) %}
  {%- if option_code %}
-  {%- set option_uri = notations.lookup_notation(dimension_code, option_code)['uri'] %}
-  {%- set dimension_uri = notations.lookup_dimension_uri(dimension_code)['uri'] %}
-  {%- if dimension_code in group_dimensions %}
-    {%- set grouper_uri = notations.lookup_dimension_uri_by_grouper(dimension_code)['uri'] %}
+  {%- set option_uri = metadata.lookup_notation(dimension_code, option_code)['uri'] %}
+  {%- set dimension_uri = metadata.lookup_dimension_uri(dimension_code) %}
+  {%- if metadata.is_group_dimension(dimension_uri) %}
+    {%- set grouper_uri = metadata.lookup_dimension_uri_by_grouper_uri(dimension_uri) %}
     ?{{ observation }} {{ grouper_uri|uri_n3 }} [
       dad-prop:membership [ dad-prop:member-of {{ option_uri|uri_n3 }} ]
     ] .
@@ -20,7 +20,6 @@
 
   {%- else %}
   ?{{ observation }}
-    {# dad-prop:{{ dimension_code }} {{ option_uri|uri_n3 }} . #}
     {{ dimension_uri|uri_n3 }} {{ option_uri|uri_n3 }} .
 
   {%- endif %}
@@ -28,17 +27,16 @@
 {%- endmacro %}
 
 {% macro one_attribute(observation, name, dimension_code) %}
-    {%- set dimension_uri = notations.lookup_dimension_uri(dimension_code)['uri'] %}
+    {%- set dimension_uri = metadata.lookup_dimension_uri(dimension_code) %}
     ?{{ observation }}
         {{ dimension_uri|uri_n3 }} ?{{ name }} .
 {%- endmacro %}
 
 
 {% macro one_column(observation, prefix, dimension_code) %}
-  {%- set dimension_uri = notations.lookup_dimension_uri(dimension_code)['uri'] %}
+  {%- set dimension_uri = metadata.lookup_dimension_uri(dimension_code) %}
 
   ?{{ observation }}
-    {# dad-prop:{{ dimension_code }} ?{{ prefix }}_option . #}
     {{ dimension_uri|uri_n3 }} ?{{ prefix }}_option .
   ?{{ prefix }}_option
     skos:notation ?{{ prefix }} .
