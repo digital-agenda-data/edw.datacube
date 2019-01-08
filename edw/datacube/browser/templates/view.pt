@@ -33,7 +33,11 @@
       </div>
     </div>
 
+<<<<<<< Updated upstream
     <div class="row white-area use-top-padding rounded-top rounded-bottom">
+=======
+    <div class="row use-top-padding">
+>>>>>>> Stashed changes
       <div class="col-md-9 col-sm-12 col-xs-12">
         <div tal:repeat="wid python:['endpoint', 'dataset']">
           <tal:block define="field python:here.getField(wid);
