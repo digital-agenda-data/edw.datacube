@@ -256,6 +256,7 @@ class CubeMetadata(object):
                 'notation': notation,
                 'label': notation,
                 'short_label': notation,
+                'uri': 'http://semantic.digital-agenda-data.eu/codelist/%s/%s' % (dimension_code, notation)
             }
         return result[0]
 
