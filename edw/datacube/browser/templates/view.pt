@@ -13,7 +13,7 @@
                 state python:view.getItemState(here);">
 
     <div class="row">
-      <div class="col-sm-3 col-sm-push-8 sidebar-yellow left-margin">
+      <div class="col-sm-3 col-sm-push-8 sidebar-yellow">
         <div>
           <ul class="menu clearfix sidebar-list">
             <li><a tal:attributes="href string:${portal_url}/."><span class="glyphicon glyphicon-home" aria-hidden="true"></span> Home</a></li>
@@ -24,7 +24,7 @@
         </div>
       </div>
       <div class="col-sm-8 col-sm-pull-3 sm-padding-right">
-        <div>
+        <div class="actions">
           <tal:block condition="canModify">
             <a class="btn btn-xs btn-warning" tal:attributes="href string:${here/absolute_url}/edit"><span class="glyphicon glyphicon-edit" aria-hidden="true"></span> Edit</a>
             <a class="btn btn-xs btn-danger" tal:attributes="href string:${here/absolute_url}/delete_confirmation"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Delete</a>
