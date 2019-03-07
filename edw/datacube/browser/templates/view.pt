@@ -13,12 +13,12 @@
                 state python:view.getItemState(here);">
 
     <div class="row">
-      <div class="col-sm-3 col-sm-push-8 sidebar-yellow">
+      <div class="col-sm-3 col-sm-push-8 sidebar-yellow no-top-padding">
         <div>
           <ul class="menu clearfix sidebar-list">
             <li><a tal:attributes="href string:${portal_url}/."><span class="glyphicon glyphicon-home" aria-hidden="true"></span> Home</a></li>
-            <li><a href="#"><span class="glyphicon glyphicon-tasks" aria-hidden="true"></span> Charts</a></li>
-            <li class="active"><a tal:attributes="href string:${here/absolute_url}"><span class="glyphicon glyphicon-file" aria-hidden="true"></span> Dataset</a></li>
+            <li><a tal:attributes="href string:${here/absolute_url}/visualizations"><span class="glyphicon glyphicon-tasks" aria-hidden="true"></span> Charts</a></li>
+            <li class="active"><a href="#"><span class="glyphicon glyphicon-file" aria-hidden="true"></span> Dataset</a></li>
             <li><a tal:attributes="href string:${here/absolute_url}/indicators"><span class="glyphicon glyphicon-tags" aria-hidden="true"></span> Indicators</a></li>
           </ul>
         </div>
