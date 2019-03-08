@@ -44,7 +44,7 @@
           </tal:block>
         </div>
         <h2 class="blue-top-border">Dataset metadata</h2>
-        <dl id="dataset-metadata">
+        <dl class="dataset-metadata">
           <dt></dt>
           <dd></dd>
         </dl>
