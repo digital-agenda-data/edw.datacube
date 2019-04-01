@@ -18,7 +18,7 @@
           <h3>About this dataset</h3>
           <ul class="menu clearfix sidebar-list">
             <li><a tal:attributes="href string:${here/absolute_url}/visualizations">Charts</a></li>
-            <li class="active"><a href="#">Dataset</a></li>
+            <li class="active"><a href="#">Metadata and download</a></li>
             <li><a tal:attributes="href string:${here/absolute_url}/indicators">Indicators</a></li>
           </ul>
         </div>
