@@ -20,6 +20,7 @@
             <li><a tal:attributes="href string:${here/absolute_url}/visualizations">Charts</a></li>
             <li class="active"><a href="#">Metadata and download</a></li>
             <li><a tal:attributes="href string:${here/absolute_url}/indicators">Indicators</a></li>
+            <li><a tal:attributes="href string:${portal_url}/board/${here/id}">Comments</a></li>
           </ul>
         </div>
       </div>
