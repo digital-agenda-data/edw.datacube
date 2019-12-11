@@ -9,5 +9,4 @@ validators..cancel =
 [actions]
 action.success = traverse_to:string:datacube_edit_controller
 action.success..form_add = traverse_to:string:add_reference
-action.success..cancel = redirect_to:python:object.REQUEST.get('final_url', '')
 action.failure = traverse_to_action:string:edit
