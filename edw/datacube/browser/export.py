@@ -23,7 +23,7 @@ class ExportCSV(BrowserView):
         except:
             return ""
 
-        headers = ['series', 'name', 'code', 'y']
+        headers = ['Series', 'Name', 'Code', 'Y']
 
         writer = csv.DictWriter(response, headers, restval='')
         writer.writeheader()
@@ -51,10 +51,10 @@ class ExportCSV(BrowserView):
         coords = set(['x', 'y', 'z'])
         keys = set(chart_data[0][0].get('data', [{}])[0].keys())
 
-        headers = ['series', 'name', 'x', 'y', 'z']
+        headers = ['Series', 'Name', 'X', 'Y', 'Z']
 
         if keys.intersection(coords) != coords:
-            headers = ['series', 'name', 'x', 'y']
+            headers = ['Series', 'Name', 'X', 'Y']
 
         writer = csv.DictWriter(response, headers, restval='')
         writer.writeheader()
@@ -69,8 +69,8 @@ class ExportCSV(BrowserView):
                     writer.writerow(encoded)
 
     def datapoints_profile(self, response, chart_data):
-        headers = ['name', 'eu', 'original']
-        extra_headers = ['period']
+        headers = ['Name', 'EU', 'Original']
+        extra_headers = ['Period']
 
         writer = csv.DictWriter(response, extra_headers + headers, restval='')
         writer.writeheader()
@@ -96,8 +96,8 @@ class ExportCSV(BrowserView):
             ]
 
             headers = (
-                    ['country', 'indicator', 'breakdown', 'unit'] + years +
-                    ['EU28 value %s' %latest, 'rank']
+                    ['Country', 'Indicator', 'Breakdown', 'Unit'] + years +
+                    ['EU28 value %s' %latest, 'Rank']
             )
             writer = csv.DictWriter(
                 response, headers, restval='', dialect=csv.excel
@@ -128,8 +128,8 @@ class ExportCSV(BrowserView):
     def datapoints_profile_polar(self, response, chart_data):
         writer = csv.DictWriter(
             response,
-            ['country', 'category', 'indicator', 'breakdown', 'unit', 'eu',
-             'original', 'period'],
+            ['Country', 'Category', 'Indicator', 'Breakdown', 'Unit', 'EU',
+             'Original', 'Period'],
             restval=''
         )
         writer.writeheader()
@@ -223,9 +223,37 @@ class ExportCSV(BrowserView):
         stream.seek(0)
         source_csv = csv.reader(stream, delimiter=",")
 
+        last_sheet = name == 'Observation Data'
+        filters_sheet = name == 'Applied Filters'
+
+        bold = ";font: bold on"
+        style_text_center = "align: vert centre"
+
+
         for rowi, row in enumerate(source_csv):
+            sheet.row(rowi).height_mismatch = True
+            sheet.row(rowi).height = 400
+
             for coli, value in enumerate(row):
-                sheet.write(rowi, coli, value.decode('utf-8'))
+                sheet.col(coli).width = 256 * 40
+
+                if filters_sheet and coli in [0, 1] and rowi == 0:
+                    custom_style = xlwt.easyxf(
+                        style_text_center + ',horiz centre' + bold
+                    )
+                elif (not last_sheet and coli == 0) or \
+                     (last_sheet and rowi == 0):
+                    custom_style = xlwt.easyxf(style_text_center + bold)
+                else:
+                    custom_style = xlwt.easyxf(style_text_center)
+
+                sheet.write(
+                    rowi, coli, value.decode('utf-8'), style=custom_style
+                )
+
+        if filters_sheet:
+            sheet.merge(0, 0, 0, 1)
+
 
     def export(self):
         """ Export to csv
