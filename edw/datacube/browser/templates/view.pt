@@ -11,40 +11,41 @@
     tal:define="canModify python:checkPermission('Modify portal content', here);
                 canReview python:checkPermission('Review portal content', here);
                 state python:view.getItemState(here);">
+
     <div class="row">
-      <div class="dataset-manage bootstrap col-md-12">
-        <tal:block condition="canModify">
-          <a class="btn btn-xs btn-warning" tal:attributes="href string:${here/absolute_url}/edit"><span class="glyphicon glyphicon-edit" aria-hidden="true"></span> Edit</a>
-          <a class="btn btn-xs btn-danger" tal:attributes="href string:${here/absolute_url}/delete_confirmation"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Delete</a>
-        </tal:block>
-        <tal:block condition="canReview">
-          <a class="btn btn-xs btn-success" tal:condition="python: state != 'published'"
-            tal:attributes="href string:${here/absolute_url}/content_status_modify?workflow_action=publish"><span class="glyphicon glyphicon-ok-sign" aria-hidden="true"></span> Publish</a>
-          <a class="btn btn-xs btn-inverse" tal:condition="python: state != 'private'"
-            tal:attributes="href string:${here/absolute_url}/content_status_modify?workflow_action=reject"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span> Unpublish</a>
-        </tal:block>
-
-        <ul class="nav nav-tabs">
-          <li><a tal:attributes="href string:${portal_url}/."><span class="glyphicon glyphicon-home" aria-hidden="true"></span> Home</a></li>
-          <li><a tal:attributes="href string:${here/absolute_url}/visualizations"><span class="glyphicon glyphicon-tasks" aria-hidden="true"></span> Charts</a></li>
-          <li class="active"><a href="#"><span class="glyphicon glyphicon-file" aria-hidden="true"></span> Dataset</a></li>
-          <li><a tal:attributes="href string:${here/absolute_url}/indicators"><span class="glyphicon glyphicon-tags" aria-hidden="true"></span> Indicators</a></li>
-        </ul>
+      <div class="col-sm-3 col-sm-push-8 sidebar-yellow">
+        <div class="sidebar-content">
+          <h3>About this dataset</h3>
+          <ul class="menu clearfix sidebar-list">
+            <li><a tal:attributes="href string:${here/absolute_url}/visualizations">Charts</a></li>
+            <li class="active"><a href="#">Metadata and download</a></li>
+            <li><a tal:attributes="href string:${here/absolute_url}/indicators">Indicators</a></li>
+            <li><a tal:attributes="href string:${portal_url}/board/${here/id}">Comments</a></li>
+          </ul>
+        </div>
       </div>
-    </div>
-
-    <div class="row white-area use-top-padding rounded-top rounded-bottom">
-      <div class="col-md-9 col-sm-12 col-xs-12">
+      <div class="col-sm-8 col-sm-pull-3 sm-padding-right">
+        <div class="actions">
+          <tal:block condition="canModify">
+            <a class="btn btn-xs btn-warning" tal:attributes="href string:${here/absolute_url}/edit"><span class="glyphicon glyphicon-edit" aria-hidden="true"></span> Edit</a>
+            <a class="btn btn-xs btn-danger" tal:attributes="href string:${here/absolute_url}/delete_confirmation"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span> Delete</a>
+          </tal:block>
+          <tal:block condition="canReview">
+            <a class="btn btn-xs btn-success" tal:condition="python: state != 'published'"
+              tal:attributes="href string:${here/absolute_url}/content_status_modify?workflow_action=publish"><span class="glyphicon glyphicon-ok-sign" aria-hidden="true"></span> Publish</a>
+            <a class="btn btn-xs btn-inverse" tal:condition="python: state != 'private'"
+              tal:attributes="href string:${here/absolute_url}/content_status_modify?workflow_action=reject"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span> Unpublish</a>
+          </tal:block>
+        </div>
         <div tal:repeat="wid python:['endpoint', 'dataset']">
           <tal:block define="field python:here.getField(wid);
-                            label python:field.widget.label;
-                            value python:field.getAccessor(here)()">
+                             label python:field.widget.label;
+                             value python:field.getAccessor(here)()">
             <strong tal:content="label" />: <a tal:attributes="href value;id string:${wid}-value" tal:content="value"/>
           </tal:block>
         </div>
-        <br />
-        <h2>Dataset metadata</h2>
-        <dl id="dataset-metadata">
+        <h2 class="blue-top-border">Dataset metadata</h2>
+        <dl class="dataset-metadata">
           <dt></dt>
           <dd></dd>
         </dl>
@@ -101,14 +102,14 @@
         </table>
         <h2 id="download">Download Data</h2>
         <strong>Formats suitable for human consumption</strong>
-        <ul>
+        <ul class="disc">
           <li><a tal:attributes="rel string:nofollow;href python:'../../download/' + here.getField('dataset').getAccessor(here)().split('/')[-1] + '.csv.zip'">CSV</a></li>
           <li><a tal:attributes="rel string:nofollow;href python:'../../download/' + here.getField('dataset').getAccessor(here)().split('/')[-1] + '.tsv.zip'">TSV</a></li>
           <li><a tal:attributes="rel string:nofollow;href python:'../../download/' + here.getField('dataset').getAccessor(here)().split('/')[-1] + '000001.ttl.gz'">N3/Turtle</a></li>
           <li><a tal:attributes="rel string:nofollow;href python:here.getField('dataset').getAccessor(here)()">HTML</a></li>
         </ul>
         <strong>Formats suitable for machine-to-machine communication</strong>
-        <ul>
+        <ul class="disc">
             <!--
           <li>Data: <a href="@@data-rdf" rel="nofollow">RDF</a> <span>(~190Mb)</span></li>
           <li>Codelists: <a href="http://semantic.digital-agenda-data.eu/codelist.rdf">RDF</a></li>
@@ -116,18 +117,18 @@
           <li>Available data models: <a href="http://semantic.digital-agenda-data.eu/def/dsd.rdf">RDF</a></li>
           <li>Observations from datasets: <a href="http://semantic.digital-agenda-data.eu/data.rdf">RDF</a></li>
             -->
-            <li>
-                <a href="@@codelists" rel="nofollow">Codelists</a>
-            </li>
-            <li>
-                <a href="@@get_dataset_metadata" rel="nofollow">Dataset metadata and structure</a>
-            </li>
+          <li>
+            <a href="@@codelists" rel="nofollow">Codelists</a>
+          </li>
+          <li>
+            <a href="@@get_dataset_metadata" rel="nofollow">Dataset metadata and structure</a>
+          </li>
         </ul>
       </div>
-    </div>
+      </div>
 
-    <div class="row">
-      <div id="dataset-navigation" class="navigation-widget col-md-12"></div>
+      <div class="row">
+        <div id="dataset-navigation" class="navigation-widget col-md-12"></div>
+      </div>
     </div>
-  </div>
 </html>

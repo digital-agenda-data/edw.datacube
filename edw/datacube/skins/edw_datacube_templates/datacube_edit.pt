@@ -6,5 +6,12 @@
             <input type="hidden" name="final_url" tal:attributes="value final_url"/>
           </tal:block>
         </metal:slot>
+        <metal:block fill-slot="buttons">
+            <input class="context" type="submit" name="form.button.save" value="Save">
+            <span name="cancel" class="standalone btn btn-primary btn-xs"
+                    onclick="window.location.href=document.getElementsByName('last_referer')[0].value">
+                Cancel
+            </span>
+        </metal:block>
     </metal:macro>
 </metal:macro>
