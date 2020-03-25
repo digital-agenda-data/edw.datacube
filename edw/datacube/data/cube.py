@@ -248,11 +248,16 @@ class CubeMetadata(object):
 
     def lookup_notation(self, dimension_code, notation):
         data = self.get()
-        result = filter( lambda item: item['notation'].lower() == notation.lower(),
-                       data['notations'][dimension_code])
+        result = filter(lambda item: item['notation'].lower() == notation.lower(),
+                        data['notations'][dimension_code])
         if not result:
             logger.error('Notation not found: {}[{}]'.format(dimension_code, notation))
-
+            return {
+                'notation': notation,
+                'label': notation,
+                'short_label': notation,
+                'uri': 'http://semantic.digital-agenda-data.eu/codelist/%s/%s' % (dimension_code, notation)
+            }
         return result[0]
 
     def lookup_metadata(self, dimension_code, uri):
