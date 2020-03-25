@@ -259,19 +259,21 @@ class ExportCSV(BrowserView):
         """ Export to csv
         """
         to_xlsx = self.request.form.get('format')=='xlsx'
+        filename = self.context.getId() + '_' + \
+                   datetime.datetime.now().strftime('%d_%b_%Y')
 
         if to_xlsx:
             self.request.response.setHeader(
                 'Content-Type', 'application/vnd.ms-excel; charset=utf-8')
             self.request.response.setHeader(
                 'Content-Disposition',
-                'attachment; filename="%s.xlsx"' % self.context.getId())
+                'attachment; filename="%s.xlsx"' % filename)
         else:
             self.request.response.setHeader(
                 'Content-Type', 'application/csv')
             self.request.response.setHeader(
                 'Content-Disposition',
-                'attachment; filename="%s.csv"' % self.context.getId())
+                'attachment; filename="%s.csv"' % filename)
 
         if not self.request.form.get('chart_data'):
             return
