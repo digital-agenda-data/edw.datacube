@@ -23,8 +23,9 @@ class ExportCSV(BrowserView):
         except:
             return ""
 
-        headers = ['Series', 'Name', 'Code', 'Y']
+        headers = ['series', 'name', 'code', 'y']
 
+        response.write('Data extracted:\r\n')
         writer = csv.DictWriter(response, headers, restval='')
         writer.writeheader()
 
@@ -51,10 +52,10 @@ class ExportCSV(BrowserView):
         coords = set(['x', 'y', 'z'])
         keys = set(chart_data[0][0].get('data', [{}])[0].keys())
 
-        headers = ['Series', 'Name', 'X', 'Y', 'Z']
+        headers = ['series', 'name', 'x', 'y', 'z']
 
         if keys.intersection(coords) != coords:
-            headers = ['Series', 'Name', 'X', 'Y']
+            headers = ['series', 'name', 'x', 'y']
 
         writer = csv.DictWriter(response, headers, restval='')
         writer.writeheader()
@@ -69,8 +70,8 @@ class ExportCSV(BrowserView):
                     writer.writerow(encoded)
 
     def datapoints_profile(self, response, chart_data):
-        headers = ['Name', 'EU', 'Original']
-        extra_headers = ['Period']
+        headers = ['name', 'eu', 'original']
+        extra_headers = ['period']
 
         writer = csv.DictWriter(response, extra_headers + headers, restval='')
         writer.writeheader()
@@ -95,13 +96,9 @@ class ExportCSV(BrowserView):
                 '%s' % (latest)
             ]
 
-            headers = (
-                    ['Country', 'Indicator', 'Breakdown', 'Unit'] + years +
-                    ['EU28 value %s' %latest, 'Rank']
-            )
-            writer = csv.DictWriter(
-                response, headers, restval='', dialect=csv.excel
-            )
+            headers = (['country', 'indicator', 'breakdown', 'unit'] + years +
+                       ['EU28 value %s' %latest, 'rank'])
+            writer = csv.DictWriter(response, headers, restval='', dialect=csv.excel)
             writer.writeheader()
 
             encoded['country'] = series['data']['ref-area']['label']
@@ -127,10 +124,8 @@ class ExportCSV(BrowserView):
 
     def datapoints_profile_polar(self, response, chart_data):
         writer = csv.DictWriter(
-            response,
-            ['Country', 'Category', 'Indicator', 'Breakdown', 'Unit', 'EU',
-             'Original', 'Period'],
-            restval=''
+            response, ['country', 'category', 'indicator', 'breakdown',
+                       'unit', 'eu', 'original', 'period'], restval=''
         )
         writer.writeheader()
         for series in chart_data:
@@ -242,7 +237,7 @@ class ExportCSV(BrowserView):
                         style_text_center + ',horiz centre' + bold
                     )
                 elif (not last_sheet and coli == 0) or \
-                     (last_sheet and rowi == 0):
+                     (last_sheet and rowi in [0, 1]):
                     custom_style = xlwt.easyxf(style_text_center + bold)
                 else:
                     custom_style = xlwt.easyxf(style_text_center)
@@ -258,7 +253,7 @@ class ExportCSV(BrowserView):
     def export(self):
         """ Export to csv
         """
-        to_xlsx = self.request.form.get('format')=='xlsx'
+        to_xlsx = self.request.form.get('format') == 'xlsx'
         filename = self.context.getId() + '_' + \
                    datetime.datetime.now().strftime('%d_%b_%Y')
 
