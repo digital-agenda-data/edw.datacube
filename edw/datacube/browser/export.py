@@ -11,10 +11,14 @@ from Products.Five.browser import BrowserView
 from StringIO import StringIO
 from zope.component import queryMultiAdapter
 
+from openpyxl import load_workbook
+from os import sys
 
 class ExportCSV(BrowserView):
     """ Export to CSV
     """
+
+
     def write_headers(self, sheet, headers, row):
         col = 1
         for h in headers:
@@ -335,33 +339,47 @@ class ExportCSV(BrowserView):
 
         return self.download_xls(wb)
 
+    def convert_to_csv(self, workbook, stream):
+        sheets = workbook.worksheets
+
+        writer = csv.writer(stream)
+        for sheet in sheets:
+            for row in sheet.rows:
+                data_row = map(lambda x: x.value, row)
+                writer.writerow(data_row)
+
+        return stream
+
     def download_xls(self, wb):
         to_xlsx = self.request.form.get('format') == 'xlsx'
-
-        stream = StringIO()
-
         title = self.context.getId().replace(" ", "_")
         timestamp = datetime.datetime.now().strftime("%d_%b_%Y")
 
         filename = title + '_' + str(timestamp)
-        wb.save(stream)
-
-        stream.seek(0)
 
         if to_xlsx:
+            stream = StringIO()
+            wb.save(stream)
+            stream.seek(0)
+
             self.request.response.setHeader(
                 'Content-Type', 'application/vnd.ms-excel; charset=utf-8')
             self.request.response.setHeader(
                 'Content-Disposition',
                 'attachment; filename="%s.xlsx"' % filename)
+
+            return stream.read()
         else:
+            output_stream = self.request.response
+
             self.request.response.setHeader(
-                'Content-Type', 'application/csv')
+                'Content-Type', 'application/csv; charset=utf-8')
             self.request.response.setHeader(
                 'Content-Disposition',
                 'attachment; filename="%s.csv"' % filename)
 
-        return stream.read()
+            self.convert_to_csv(wb, output_stream)
+            return self.request.response
 
 
 class ExportRDF(BrowserView):
