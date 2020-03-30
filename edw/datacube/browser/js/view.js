@@ -38,7 +38,7 @@ scoreboard.datacube.view = {
     },
     renderDatasetMetadata: function(data){
         var self = this;
-        var target = jQuery('#dataset-metadata');
+        var target = jQuery('.dataset-metadata');
         target.empty();
         jQuery.each(data, function(label, value){
             var dt = jQuery('<dt>').html(self.replaceURLWithHTMLLinks(label));
