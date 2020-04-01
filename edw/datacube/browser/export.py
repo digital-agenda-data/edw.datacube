@@ -11,14 +11,10 @@ from Products.Five.browser import BrowserView
 from StringIO import StringIO
 from zope.component import queryMultiAdapter
 
-from openpyxl import load_workbook
-from os import sys
 
 class ExportCSV(BrowserView):
     """ Export to CSV
     """
-
-
     def write_headers(self, sheet, headers, row):
         col = 1
         for h in headers:
@@ -190,24 +186,26 @@ class ExportCSV(BrowserView):
 
     def write_general_sheet(self, sheet, data):
         sheet.cell(row=1, column=1).value = 'Chart title'
-        sheet.cell(row=1, column=2).value = data.get('chart-title', '-')
+
+        chart_url = data.get('chart-url', None)
+        chart_title = data.get('chart-title', '-')
+        chart_subtitle = data.get('chart-subtitle', None)
+
+        if chart_subtitle:
+            chart_title = '{} ({})'.format(chart_title, chart_subtitle)
+
+        if chart_url:
+            sheet.cell(row=1, column=2).hyperlink = chart_url
+        sheet.cell(row=1, column=2).value = chart_title
 
         sheet.cell(row=2, column=1).value = 'Source dataset'
         sheet.cell(row=2, column=2).value = data.get('source-dataset', '-')
-        sheet.cell(row=2, column=3).value = data.get(
-            'chart-url', 'Chart url not available.'
-        )
-        
+
         sheet.cell(row=3, column=1).value = 'Extraction-Date'
-        sheet.cell(row=3, column=2).value = datetime.datetime.now().strftime(
-            '%d %b %Y'
-        )
+        sheet.cell(row=3, column=2).value = datetime.date.today()
 
         sheet.cell(row=4, column=1).value = 'List of available indicators'
         sheet.cell(row=4, column=2).value = data.get('indicators_details_url')
-
-        for row in range(1,5):
-            sheet.cell(row=row, column=1).font = Font(bold=True)
 
     def write_applied_filters_sheet(self, sheet, data):
         sheet.cell(row=1, column=1).value = 'Selection of filters applied'
@@ -251,7 +249,7 @@ class ExportCSV(BrowserView):
         for r in range(1,row + 1):
             sheet.cell(row=r, column=1).font = Font(bold=True)
 
-    def write_observation_data_sheet(self, sheet, data=None):
+    def write_observation_data_sheet(self, sheet, chart_data):
         formatters = {
             'scatter': self.datapoints_n,
             'bubbles': self.datapoints_n,
@@ -260,7 +258,6 @@ class ExportCSV(BrowserView):
             'country_profile_polar_polar': self.datapoints_profile_polar,
         }
 
-        chart_data = json.loads(self.request.form.pop('chart_data'))
         chart_type = self.request.form.pop('chart_type')
 
         formatter = formatters.get(chart_type, self.datapoints)
@@ -308,8 +305,11 @@ class ExportCSV(BrowserView):
         if self.request.form.get('annotations'):
             annotations = json.loads(self.request.form.pop('annotations'))
 
+        chart_data = json.loads(self.request.form.pop('chart_data'))
+
         general_info_data = {
             u'chart-title': metadata['chart-title'],
+            u'chart-subtitle': self.request.form.get('chart_subtitle', ''),
             u'chart-url': metadata['chart-url'],
             u'source-dataset': metadata['source-dataset'],
             u'indicators_details_url': annotations['indicators_details_url']
@@ -333,8 +333,8 @@ class ExportCSV(BrowserView):
             self.write_applied_filters_sheet
         )
         self.make_sheet(
-            wb, 'Observation Data', data=None,
-            sheet_fct=self.write_observation_data_sheet
+            wb, 'Observation Data', chart_data,
+            self.write_observation_data_sheet
         )
 
         return self.download_xls(wb)
@@ -353,7 +353,7 @@ class ExportCSV(BrowserView):
     def download_xls(self, wb):
         to_xlsx = self.request.form.get('format') == 'xlsx'
         title = self.context.getId().replace(" ", "_")
-        timestamp = datetime.datetime.now().strftime("%d_%b_%Y")
+        timestamp = datetime.date.today().strftime("%d_%m_%Y")
 
         filename = title + '_' + str(timestamp)
 
