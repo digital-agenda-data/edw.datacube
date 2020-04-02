@@ -208,46 +208,41 @@ class ExportCSV(BrowserView):
         sheet.cell(row=4, column=2).value = data.get('indicators_details_url')
 
     def write_applied_filters_sheet(self, sheet, data):
-        sheet.cell(row=1, column=1).value = 'Selection of filters applied'
-        sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=2)
+        header = [u'Filter', u'Notation', u'Label', u'Definition']
+        self.write_headers(sheet, header, row=1)
 
         row = 2
-        col = 1
-        for item in data.get('filters-applied', []):
-            for val in item:
-                # TODO: integers here
-                if type(val) == list:
-                    val = '\n'.join(str(x) for x in val)
-                sheet.cell(row=row, column=col).value = val
-                col += 1
+        for anno in data['annotations']:
+            if anno['notation'] not in data['filter-labels'].keys():
+                sheet.cell(row=row, column=1).value = anno['filter_label']
+                sheet.cell(row=row, column=2).value = anno['notation']
+                sheet.cell(row=row, column=3).value = anno['label']
+                sheet.cell(row=row, column=4).value = anno.get(
+                    'definition', None
+                )
+
             row += 1
-            col = 1
 
-        annotations = data.get('definition-and-scopes')
-        sheet.cell(row=row, column=1).value = annotations.get('title', '-')
+        for notation, filter in data['filter-labels'].items():
+            sheet.cell(row=row, column=1).value = filter['filter-label']
 
-        row += 1
-        for item in annotations.get('blocks', []):
-            sheet.cell(row=row, column=1).value = item.get(
-                'filter_label', '-'
-            ) + ':'
-            sheet.cell(row=row, column=2).value = item.get('label', '-')
+            row_incr = 0
+            if type(filter['label-col']) is dict:
+                sheet.merge_cells(
+                    start_row=row, start_column=1,
+                    end_row=row + len(filter['label-col']) - 1, end_column=1
+                )
 
-            if item.get('definition'):
+                for notation, label in filter['label-col'].items():
+                    sheet.cell(row=row+row_incr, column=2).value = notation
+                    sheet.cell(row=row+row_incr, column=3).value = label
+                    row_incr += 1
+                row += row_incr
+            else:
+                sheet.cell(row=row, column=2).value = notation
+                sheet.cell(row=row, column=3).value = filter['label-col']
+
                 row += 1
-                sheet.cell(row=row, column=1).value = 'Definition'
-                sheet.cell(row=row, column=2).value = item['definition']
-            if item.get('note'):
-                row += 1
-                sheet.cell(row=row, column=1).value = 'Notes'
-                sheet.cell(row=row, column=2).value = item['note']
-            if item.get('source_definition'):
-                row += 1
-                sheet.cell(row=row, column=1).value = 'Source'
-                sheet.cell(row=row, column=2).value = item['source_definition']
-
-        for r in range(1,row + 1):
-            sheet.cell(row=r, column=1).font = Font(bold=True)
 
     def write_observation_data_sheet(self, sheet, chart_data):
         formatters = {
@@ -306,21 +301,19 @@ class ExportCSV(BrowserView):
             annotations = json.loads(self.request.form.pop('annotations'))
 
         chart_data = json.loads(self.request.form.pop('chart_data'))
+        extra_info = json.loads(self.request.form.pop('chart_filter_labels')[0])
 
         general_info_data = {
             u'chart-title': metadata['chart-title'],
-            u'chart-subtitle': self.request.form.get('chart_subtitle', ''),
+            u'chart-subtitle': extra_info.get('chart_subtitle'),
             u'chart-url': metadata['chart-url'],
             u'source-dataset': metadata['source-dataset'],
             u'indicators_details_url': annotations['indicators_details_url']
         }
 
         applied_filters_data = {
-            u'filters-applied': metadata['filters-applied'],
-            u'definition-and-scopes': {
-                u'title': annotations['section_title'],
-                u'blocks': annotations['blocks']
-            }
+            u'filter-labels': extra_info['filters'],
+            u'annotations': annotations['blocks']
         }
 
         wb = Workbook()
