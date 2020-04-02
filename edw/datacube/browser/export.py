@@ -281,8 +281,11 @@ class ExportCSV(BrowserView):
         sheet_fct(sheet, data)
         self.apply_styles(sheet)
 
+        if filters_sheet:
+            sheet.column_dimensions['C'].width = 50
+
     @staticmethod
-    def apply_styles(sheet, col_width=50, alignment='center'):
+    def apply_styles(sheet, col_width=30, alignment='center'):
         # Set cell width, center cells
         for col in sheet.columns:
             idx = col[0].column
