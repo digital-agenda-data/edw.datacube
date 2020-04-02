@@ -301,7 +301,12 @@ class ExportCSV(BrowserView):
             annotations = json.loads(self.request.form.pop('annotations'))
 
         chart_data = json.loads(self.request.form.pop('chart_data'))
-        extra_info = json.loads(self.request.form.pop('chart_filter_labels')[0])
+
+        extra_info = self.request.form.pop('chart_filter_labels')
+        if type(extra_info) is str:
+            extra_info = json.loads(extra_info)
+        else:
+            extra_info = json.loads(extra_info[0])
 
         general_info_data = {
             u'chart-title': metadata['chart-title'],
