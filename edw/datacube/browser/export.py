@@ -18,7 +18,9 @@ class ExportCSV(BrowserView):
     def write_headers(self, sheet, headers, row):
         col = 1
         for h in headers:
-            sheet.cell(row=row, column=col).value = h
+            header = 'Category' if h=='name' else h.capitalize()
+
+            sheet.cell(row=row, column=col).value = header
             sheet.cell(row=row, column=col).font = Font(bold=True)
             col += 1
 
@@ -35,20 +37,20 @@ class ExportCSV(BrowserView):
         except:
             return ""
 
-        headers = ['series', 'name', 'code', 'y']
-        sheet.cell(row=1, column=1).value = 'Data extracted'
-        sheet.cell(row=1, column=1).font = Font(bold=True)
-        sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=4)
+        headers = ['series', 'name', 'code', 'y', 'note', 'flag']
+        self.write_headers(sheet, headers, row=1)
 
-        self.write_headers(sheet, headers, row=2)
-
-        row = 3
+        row = 2
         for series in chart_data:
             for point in series['data']:
                 encoded = {}
                 encoded['series'] = series.get('name', '-')
                 encoded['name'] = point.get('name', '-')
-                for key in headers[1:]:
+
+                flag = point.get('attributes').get('flag')
+                encoded['flag'] = flag.get('label') if flag else None
+                encoded['note'] = point.get('attributes').get('note')
+                for key in headers[1:-2]:
                     encoded[key] = unicode(point.get(key, '-')).encode('utf-8')
                     if point.get('isNA', False):
                         encoded['y'] = None
@@ -73,6 +75,7 @@ class ExportCSV(BrowserView):
         if keys.intersection(coords) != coords:
             headers = ['series', 'name', 'x', 'y']
 
+        headers += ['note', 'flag']
         self.write_headers(sheet, headers, row=1)
 
         row = 2
@@ -80,8 +83,12 @@ class ExportCSV(BrowserView):
             for point in series:
                 encoded = {}
                 encoded['series'] = point['name']
+
+                encoded['flag'] = None
+                encoded['note'] = None
+
                 for data in point['data']:
-                    for key in headers[1:]:
+                    for key in headers[1:-2]:
                         encoded[key] = unicode(data[key]).encode('utf-8')
 
                     for idx, h in enumerate(headers):
@@ -90,15 +97,18 @@ class ExportCSV(BrowserView):
                     row += 1
 
     def datapoints_profile(self, sheet, chart_data):
-        headers = ['name', 'eu', 'original']
+        headers = ['name', 'eu', 'original', 'note', 'flag']
         extra_headers = ['period']
         self.write_headers(sheet, extra_headers + headers, row=1)
 
         row = 2
         for series in chart_data:
             for point in series['data']:
+                flag = point.get('attributes').get('flag')
                 encoded = {}
-                for key in headers:
+                encoded['flag'] = flag.get('label') if flag else None
+                encoded['note'] = point.get('attributes').get('note')
+                for key in headers[:-2]:
                     encoded[key] = unicode(point[key]).encode('utf-8')
                 period = point['attributes']['time-period']['notation']
                 encoded['period'] = unicode(period).encode('utf-8')
@@ -259,7 +269,7 @@ class ExportCSV(BrowserView):
         formatter(sheet, chart_data)
 
     def make_sheet(self, wb, name, data, sheet_fct):
-        last_sheet = name == 'Observation Data'
+        last_sheet = name == 'Data'
         filters_sheet = name == 'Applied Filters'
 
         if not (last_sheet or filters_sheet):
@@ -313,12 +323,12 @@ class ExportCSV(BrowserView):
             u'chart-subtitle': extra_info.get('chart_subtitle'),
             u'chart-url': metadata['chart-url'],
             u'source-dataset': metadata['source-dataset'],
-            u'indicators_details_url': annotations['indicators_details_url']
+            u'indicators_details_url': annotations.get('indicators_details_url')
         }
 
         applied_filters_data = {
             u'filter-labels': extra_info['filters'],
-            u'annotations': annotations['blocks']
+            u'annotations': annotations.get('blocks', [])
         }
 
         wb = Workbook()
@@ -331,7 +341,7 @@ class ExportCSV(BrowserView):
             self.write_applied_filters_sheet
         )
         self.make_sheet(
-            wb, 'Observation Data', chart_data,
+            wb, 'Data', chart_data,
             self.write_observation_data_sheet
         )
 
