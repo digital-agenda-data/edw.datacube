@@ -2,10 +2,11 @@ import cairosvg
 import csv
 import datetime
 import json
-import os
 import tempfile
-import xlwt
 
+from openpyxl.styles import Alignment
+from openpyxl.styles import Font
+from openpyxl import Workbook
 from Products.Five.browser import BrowserView
 from StringIO import StringIO
 from zope.component import queryMultiAdapter
@@ -14,8 +15,20 @@ from zope.component import queryMultiAdapter
 class ExportCSV(BrowserView):
     """ Export to CSV
     """
+    def write_headers(self, sheet, headers, row):
+        col = 1
+        for h in headers:
+            header = 'Category' if h=='name' else h.capitalize()
 
-    def datapoints(self, response, chart_data):
+            sheet.cell(row=row, column=col).value = header
+            sheet.cell(row=row, column=col).font = Font(bold=True)
+            col += 1
+
+    def write_encoded_val(self, headers, sheet, encoded, row):
+        for idx, h in enumerate(headers):
+            sheet.cell(row=row, column=idx + 1).value = encoded[h]
+
+    def datapoints(self, sheet, chart_data):
         """ Export single dimension series to CSV
         """
         try:
@@ -24,27 +37,28 @@ class ExportCSV(BrowserView):
         except:
             return ""
 
-        headers = ['series', 'name', 'code', 'y']
+        headers = ['series', 'name', 'code', 'y', 'note', 'flag']
+        self.write_headers(sheet, headers, row=1)
 
-        keys = chart_data[0].get('data', [{}])[0].keys()
-
-        response.write('Data extracted:\r\n')
-        writer = csv.DictWriter(response, headers, restval='')
-        writer.writeheader()
-
+        row = 2
         for series in chart_data:
             for point in series['data']:
                 encoded = {}
                 encoded['series'] = series.get('name', '-')
                 encoded['name'] = point.get('name', '-')
-                for key in headers[1:]:
+
+                flag = point.get('attributes').get('flag')
+                encoded['flag'] = flag.get('label') if flag else None
+                encoded['note'] = point.get('attributes').get('note')
+                for key in headers[1:-2]:
                     encoded[key] = unicode(point.get(key, '-')).encode('utf-8')
                     if point.get('isNA', False):
                         encoded['y'] = None
-                writer.writerow(encoded)
 
+                self.write_encoded_val(headers, sheet, encoded, row)
+                row += 1
 
-    def datapoints_n(self, response, chart_data):
+    def datapoints_n(self, sheet, chart_data):
         """ Export multiple dimension series to CSV
         """
         try:
@@ -53,7 +67,7 @@ class ExportCSV(BrowserView):
         except:
             return ""
 
-        coords = set(['x', 'y', 'z'])
+        coords = {'x', 'y', 'z'}
         keys = set(chart_data[0][0].get('data', [{}])[0].keys())
 
         headers = ['series', 'name', 'x', 'y', 'z']
@@ -61,51 +75,75 @@ class ExportCSV(BrowserView):
         if keys.intersection(coords) != coords:
             headers = ['series', 'name', 'x', 'y']
 
-        writer = csv.DictWriter(response, headers, restval='')
-        writer.writeheader()
+        headers += ['note', 'flag']
+        self.write_headers(sheet, headers, row=1)
 
+        row = 2
         for series in chart_data:
             for point in series:
                 encoded = {}
                 encoded['series'] = point['name']
+
+                encoded['flag'] = None
+                encoded['note'] = None
+
                 for data in point['data']:
-                    for key in headers[1:]:
+                    for key in headers[1:-2]:
                         encoded[key] = unicode(data[key]).encode('utf-8')
-                    writer.writerow(encoded)
 
+                    for idx, h in enumerate(headers):
+                        sheet.cell(row=row, column=idx + 1).value = encoded[h]
 
-    def datapoints_profile(self, response, chart_data):
-        headers = ['name', 'eu', 'original']
+                    row += 1
+
+    def datapoints_profile(self, sheet, chart_data):
+        headers = ['name', 'eu', 'original', 'note', 'flag']
         extra_headers = ['period']
+        self.write_headers(sheet, extra_headers + headers, row=1)
 
-        writer = csv.DictWriter(response, extra_headers + headers, restval='')
-        writer.writeheader()
-
+        row = 2
         for series in chart_data:
             for point in series['data']:
+                flag = point.get('attributes').get('flag')
                 encoded = {}
-                for key in headers:
+                encoded['flag'] = flag.get('label') if flag else None
+                encoded['note'] = point.get('attributes').get('note')
+                for key in headers[:-2]:
                     encoded[key] = unicode(point[key]).encode('utf-8')
                 period = point['attributes']['time-period']['notation']
                 encoded['period'] = unicode(period).encode('utf-8')
-                writer.writerow(encoded)
+               
+                self.write_encoded_val(
+                    extra_headers + headers, sheet, encoded, row
+                )
+                row += 1
 
-
-    def datapoints_profile_table(self, response, chart_data):
+    def datapoints_profile_table(self, sheet, chart_data):
+        row = 1
         for series in chart_data:
             encoded = {}
             latest = series['data']['latest']
-            years = ['%s' % (latest-3), '%s' % (latest-2), '%s' % (latest-1), '%s' % (latest)]
+            years = [
+                '%s' % (latest-3),
+                '%s' % (latest-2),
+                '%s' % (latest-1),
+                '%s' % (latest)
+            ]
 
             headers = (['country', 'indicator', 'breakdown', 'unit'] + years +
                        ['EU28 value %s' %latest, 'rank'])
-            writer = csv.DictWriter(response, headers, restval='', dialect=csv.excel)
-            writer.writeheader()
 
+            self.write_headers(sheet, headers, row=row)
+
+            row += 1
             encoded['country'] = series['data']['ref-area']['label']
             for ind in series['data']['table'].values():
-                encoded['indicator'] = unicode(ind['indicator']).encode('utf-8')
-                encoded['breakdown'] = unicode(ind['breakdown']).encode('utf-8')
+                encoded['indicator'] = unicode(ind['indicator']).encode(
+                    'utf-8'
+                )
+                encoded['breakdown'] = unicode(ind['breakdown']).encode(
+                    'utf-8'
+                )
                 encoded['unit'] = unicode(ind['unit-measure']).encode('utf-8')
                 for year in years:
                     encoded[year] = unicode(ind.get(year, '-')).encode('utf-8')
@@ -116,85 +154,156 @@ class ExportCSV(BrowserView):
                 if rank == 0:
                     rank = '-'
                 encoded['rank'] = unicode(rank).encode('utf-8')
-                writer.writerow(encoded)
+                
+                self.write_encoded_val(headers, sheet, encoded, row)
+                row += 1
 
+    def datapoints_profile_polar(self, sheet, chart_data):
+        headers = ['country', 'category', 'indicator', 'breakdown',
+                   'unit', 'eu', 'original', 'period']
 
-    def datapoints_profile_polar(self, response, chart_data):
-        writer = csv.DictWriter(response, ['country', 'category', 'indicator', 'breakdown', 'unit', 'eu', 'original', 'period'], restval='')
-        writer.writeheader()
+        self.write_headers(sheet, headers, row=1)
+
+        row = 2
         for series in chart_data:
             for point in series['data']:
                 encoded = {}
-                encoded['country'] = unicode(point['attributes']['ref-area']['notation']).encode('utf-8')
+                encoded['country'] = unicode(
+                    point['attributes']['ref-area']['notation']
+                ).encode('utf-8')
                 encoded['category'] = unicode(point['title']).encode('utf-8')
-                encoded['indicator'] = unicode(point['attributes']['indicator']['notation']).encode('utf-8')
-                encoded['breakdown'] = unicode(point['attributes']['breakdown']['notation']).encode('utf-8')
-                encoded['unit'] = unicode(point['attributes']['unit-measure']['notation']).encode('utf-8')
-                encoded['eu'] = unicode(point['attributes']['eu']).encode('utf-8')
-                encoded['original'] = unicode(point['attributes']['original']).encode('utf-8')
-                encoded['period'] = unicode(point['attributes']['time-period']['notation']).encode('utf-8')
-                writer.writerow(encoded)
+                encoded['indicator'] = unicode(
+                    point['attributes']['indicator']['notation']
+                ).encode('utf-8')
+                encoded['breakdown'] = unicode(
+                    point['attributes']['breakdown']['notation']
+                ).encode('utf-8')
+                encoded['unit'] = unicode(
+                    point['attributes']['unit-measure']['notation']
+                ).encode('utf-8')
+                encoded['eu'] = unicode(
+                    point['attributes']['eu']
+                ).encode('utf-8')
+                encoded['original'] = unicode(
+                    point['attributes']['original']
+                ).encode('utf-8')
+                encoded['period'] = unicode(
+                    point['attributes']['time-period']['notation']
+                ).encode('utf-8')
+                
+                self.write_encoded_val(headers, sheet, encoded, row)
+                row += 1
 
-    def write_metadata(self, response, metadata):
-        writer = UnicodeWriter(response, dialect=csv.excel)
-        writer.writerow(['Chart title:', metadata.get('chart-title', '-')])
-        writer.writerow(['Source dataset:', metadata.get('source-dataset', '-')])
-        writer.writerow([
-            'Extraction-Date:',
-            datetime.datetime.now().strftime('%d %b %Y')
-        ])
-        writer.writerow([
-            'Link to the chart/table:',
-            metadata.get('chart-url', '-')
-        ])
-        writer.writerow(['Selection of filters applied'])
-        for item in metadata.get('filters-applied', []):
-            writer.writerow(item)
+    def write_general_sheet(self, sheet, data):
+        sheet.cell(row=1, column=1).value = 'Chart title'
 
+        chart_url = data.get('chart-url', None)
+        chart_title = data.get('chart-title', '-')
+        chart_subtitle = data.get('chart-subtitle', None)
 
-    def write_annotations(self, response, annotations):
-        writer = UnicodeWriter(response, dialect=csv.excel)
-        writer.writerow([annotations.get('section_title', '-')])
-        for item in annotations.get('blocks', []):
-            writer.writerow([
-                item.get('filter_label', '-') + ':',
-                item.get('label', '-')
-            ])
-            if item.get('definition'):
-                writer.writerow(['Definition:', item['definition']])
-            if item.get('note'):
-                writer.writerow(['Notes:', item['note']])
-            if item.get('source_definition'):
-                writer.writerow(['Source:', item['source_definition']])
-        writer.writerow([
-            'List of available indicators:',
-            annotations.get('indicators_details_url')
-        ])
+        if chart_subtitle:
+            chart_title = '{} ({})'.format(chart_title, chart_subtitle)
 
+        if chart_url:
+            sheet.cell(row=1, column=2).hyperlink = chart_url
+        sheet.cell(row=1, column=2).value = chart_title
 
-    def export(self):
-        """ Export to csv
-        """
+        sheet.cell(row=2, column=1).value = 'Source dataset'
+        sheet.cell(row=2, column=2).value = data.get('source-dataset', '-')
 
-        to_xls = self.request.form.get('format')=='xls'
+        sheet.cell(row=3, column=1).value = 'Extraction-Date'
+        sheet.cell(row=3, column=2).value = datetime.date.today()
 
-        if to_xls:
-            self.request.response.setHeader(
-                'Content-Type', 'application/vnd.ms-excel')
-            self.request.response.setHeader(
-                'Content-Disposition',
-                'attachment; filename="%s.xls"' % self.context.getId())
-        else:
-            self.request.response.setHeader(
-                'Content-Type', 'application/csv')
-            self.request.response.setHeader(
-                'Content-Disposition',
-                'attachment; filename="%s.csv"' % self.context.getId())
-        if not self.request.form.get('chart_data'):
-            return
-        chart_data = json.loads(self.request.form.pop('chart_data'))
+        sheet.cell(row=4, column=1).value = 'List of available indicators'
+        sheet.cell(row=4, column=2).value = data.get('indicators_details_url')
+
+    def write_applied_filters_sheet(self, sheet, data):
+        header = [u'Filter', u'Notation', u'Label', u'Definition']
+        self.write_headers(sheet, header, row=1)
+
+        row = 2
+        for anno in data['annotations']:
+            if anno['notation'] not in data['filter-labels'].keys():
+                sheet.cell(row=row, column=1).value = anno['filter_label']
+                sheet.cell(row=row, column=2).value = anno['notation']
+                sheet.cell(row=row, column=3).value = anno['label']
+                sheet.cell(row=row, column=4).value = anno.get(
+                    'definition', None
+                )
+
+            row += 1
+
+        for notation, filter in data['filter-labels'].items():
+            sheet.cell(row=row, column=1).value = filter['filter-label']
+
+            row_incr = 0
+            if type(filter['label-col']) is dict:
+                sheet.merge_cells(
+                    start_row=row, start_column=1,
+                    end_row=row + len(filter['label-col']) - 1, end_column=1
+                )
+
+                for notation, label in filter['label-col'].items():
+                    sheet.cell(row=row+row_incr, column=2).value = notation
+                    sheet.cell(row=row+row_incr, column=3).value = label
+                    row_incr += 1
+                row += row_incr
+            else:
+                sheet.cell(row=row, column=2).value = notation
+                sheet.cell(row=row, column=3).value = filter['label-col']
+
+                row += 1
+
+    def write_observation_data_sheet(self, sheet, chart_data):
+        formatters = {
+            'scatter': self.datapoints_n,
+            'bubbles': self.datapoints_n,
+            'country_profile_bar': self.datapoints_profile,
+            'country_profile_table': self.datapoints_profile_table,
+            'country_profile_polar_polar': self.datapoints_profile_polar,
+        }
 
         chart_type = self.request.form.pop('chart_type')
+
+        formatter = formatters.get(chart_type, self.datapoints)
+        formatter(sheet, chart_data)
+
+    def make_sheet(self, wb, name, data, sheet_fct):
+        last_sheet = name == 'Data'
+        filters_sheet = name == 'Applied Filters'
+
+        if not (last_sheet or filters_sheet):
+            sheet = wb.active
+            sheet.title = name
+        else:
+            sheet = wb.create_sheet(name)
+
+        sheet_fct(sheet, data)
+        self.apply_styles(sheet)
+
+        if filters_sheet:
+            sheet.column_dimensions['C'].width = 50
+
+    @staticmethod
+    def apply_styles(sheet, col_width=30, alignment='center'):
+        # Set cell width, center cells
+        for col in sheet.columns:
+            idx = col[0].column
+            sheet.column_dimensions[idx].width = col_width
+            for cell in col:
+                cell.alignment = Alignment(
+                    horizontal='left',
+                    vertical=alignment,
+                    wrapText=True
+                )
+        # Set cell height
+        for row in sheet.rows:
+            idx = row[0].row
+            sheet.row_dimensions[idx].height = 30
+
+    def export(self):
+        if not self.request.form.get('chart_data'):
+            return
 
         metadata = {}
         if self.request.form.get('metadata'):
@@ -204,46 +313,85 @@ class ExportCSV(BrowserView):
         if self.request.form.get('annotations'):
             annotations = json.loads(self.request.form.pop('annotations'))
 
-        formatters = {
-            'scatter': self.datapoints_n,
-            'bubbles': self.datapoints_n,
-            'country_profile_bar': self.datapoints_profile,
-            'country_profile_table': self.datapoints_profile_table,
-            'country_profile_polar_polar': self.datapoints_profile_polar,
+        chart_data = json.loads(self.request.form.pop('chart_data'))
+
+        extra_info = self.request.form.pop('chart_filter_labels')
+        if type(extra_info) is str:
+            extra_info = json.loads(extra_info)
+        else:
+            extra_info = json.loads(extra_info[0])
+
+        general_info_data = {
+            u'chart-title': metadata['chart-title'],
+            u'chart-subtitle': extra_info.get('chart_subtitle'),
+            u'chart-url': metadata['chart-url'],
+            u'source-dataset': metadata['source-dataset'],
+            u'indicators_details_url': annotations.get('indicators_details_url')
         }
 
-        output_stream = self.request.response
+        applied_filters_data = {
+            u'filter-labels': extra_info['filters'],
+            u'annotations': annotations.get('blocks', [])
+        }
 
-        if to_xls:
-            output_stream = StringIO()
+        wb = Workbook()
+        self.make_sheet(
+            wb, 'General Information', general_info_data,
+            self.write_general_sheet
+        )
+        self.make_sheet(
+            wb, 'Applied Filters', applied_filters_data,
+            self.write_applied_filters_sheet
+        )
+        self.make_sheet(
+            wb, 'Data', chart_data,
+            self.write_observation_data_sheet
+        )
 
-        self.write_metadata(output_stream, metadata)
+        return self.download_xls(wb)
 
-        formatter = formatters.get(chart_type, self.datapoints)
-        formatter(output_stream, chart_data)
+    def convert_to_csv(self, workbook, stream):
+        sheets = workbook.worksheets
 
-        self.write_annotations(output_stream, annotations)
+        writer = csv.writer(stream)
+        for sheet in sheets:
+            for row in sheet.rows:
+                data_row = map(lambda x: x.value, row)
+                writer.writerow(data_row)
 
-        workbook = xlwt.Workbook()
-        sheet = workbook.add_sheet('chart data')
+        return stream
 
-        if to_xls:
-            output_stream.flush()
-            output_stream.seek(0)
-            source_csv = csv.reader(output_stream, delimiter=",")
+    def download_xls(self, wb):
+        to_xlsx = self.request.form.get('format') == 'xlsx'
+        title = self.context.getId().replace(" ", "_")
+        timestamp = datetime.date.today().strftime("%d_%m_%Y")
 
-            for rowi, row in enumerate(source_csv):
-                for coli, value in enumerate(row):
-                    sheet.write(rowi, coli, value.decode('utf-8'))
-            with tempfile.TemporaryFile(mode='w+b') as f_temp:
-                workbook.save(f_temp)
-                f_temp.flush()
-                f_temp.seek(0)
-                chunk = True
-                while chunk:
-                    chunk = f_temp.read(64*1024)
-                    self.request.response.write(chunk)
-        return self.request.response
+        filename = title + '_' + str(timestamp)
+
+        if to_xlsx:
+            stream = StringIO()
+            wb.save(stream)
+            stream.seek(0)
+
+            self.request.response.setHeader(
+                'Content-Type', 'application/vnd.ms-excel; charset=utf-8')
+            self.request.response.setHeader(
+                'Content-Disposition',
+                'attachment; filename="%s.xlsx"' % filename)
+
+            return stream.read()
+        else:
+            output_stream = self.request.response
+
+            self.request.response.setHeader(
+                'Content-Type', 'application/csv; charset=utf-8')
+            self.request.response.setHeader(
+                'Content-Disposition',
+                'attachment; filename="%s.csv"' % filename)
+
+            self.convert_to_csv(wb, output_stream)
+            return self.request.response
+
 
 class ExportRDF(BrowserView):
     """ Export to RDF
