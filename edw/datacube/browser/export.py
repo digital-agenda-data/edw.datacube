@@ -2,11 +2,13 @@ import cairosvg
 import csv
 import datetime
 import json
+import re
 import tempfile
 
 from openpyxl.styles import Alignment
 from openpyxl.styles import Font
 from openpyxl import Workbook
+from plone import api
 from Products.Five.browser import BrowserView
 from StringIO import StringIO
 from zope.component import queryMultiAdapter
@@ -221,9 +223,10 @@ class ExportCSV(BrowserView):
         header = [u'Filter', u'Notation', u'Label', u'Definition']
         self.write_headers(sheet, header, row=1)
 
+        filter_notations = [x[0] for x in data['filters-applied']]
         row = 2
         for anno in data['annotations']:
-            if anno['notation'] not in data['filter-labels'].keys():
+            if anno['notation'] not in filter_notations:
                 sheet.cell(row=row, column=1).value = anno['filter_label']
                 sheet.cell(row=row, column=2).value = anno['notation']
                 sheet.cell(row=row, column=3).value = anno['label']
@@ -233,25 +236,59 @@ class ExportCSV(BrowserView):
 
             row += 1
 
-        for notation, filter in data['filter-labels'].items():
-            sheet.cell(row=row, column=1).value = filter['filter-label']
+        url = self.request.getURL()
+        result = re.search('/(.*)/export.csv', url)
+        dataset_name = result.group(1).rsplit('/', 1)[-1]
+        portal = api.portal.get()
+        cube = portal.unrestrictedTraverse(
+            'datasets/{}'.format(dataset_name)
+        ).get_cube()
+        cd = cube.metadata.load_dimensions()
+        lookup_base = 'http://semantic.digital-agenda-data.eu/def/property/'
 
+        sheet.cell(row=row, column=1).value = 'Breakdown Group'
+        sheet.cell(row=row, column=2).value = 'any'
+
+        row += 1
+
+        for notation, value in data['filters-applied']:
+            try:
+                label = cd[lookup_base + notation]['label']
+            except:
+                label = notation
+            sheet.cell(row=row, column=1).value = label.replace(
+                '-', ' '
+            ).title()
             row_incr = 0
-            if type(filter['label-col']) is dict:
+            if notation == 'breakdown-group':
+                continue
+            elif type(value) is list:
+                is_country = notation == 'ref-area'
+                is_tp = notation == 'time-period'
+
+                if is_country:
+                    value = data['countries'].keys()
+
                 sheet.merge_cells(
                     start_row=row, start_column=1,
-                    end_row=row + len(filter['label-col']) - 1, end_column=1
+                    end_row=row + len(value) - 1, end_column=1
                 )
 
-                for notation, label in filter['label-col'].items():
-                    sheet.cell(row=row+row_incr, column=2).value = notation
-                    sheet.cell(row=row+row_incr, column=3).value = label
+                for el in value:
+                    sheet.cell(row=row + row_incr, column=2).value = el
+                    if is_country:
+                        sheet.cell(row=row + row_incr, column=3).value = data[
+                            'countries'
+                        ][el]
+                    elif is_tp:
+                        sheet.cell(row=row + row_incr, column=3).value = data[
+                            'time_period'
+                        ][el]
+
                     row_incr += 1
                 row += row_incr
             else:
-                sheet.cell(row=row, column=2).value = notation
-                sheet.cell(row=row, column=3).value = filter['label-col']
-
+                sheet.cell(row=row, column=2).value = value
                 row += 1
 
     def write_observation_data_sheet(self, sheet, chart_data):
@@ -314,6 +351,12 @@ class ExportCSV(BrowserView):
             annotations = json.loads(self.request.form.pop('annotations'))
 
         chart_data = json.loads(self.request.form.pop('chart_data'))
+        c_dict = {
+            x['attributes']['ref-area']['notation']:
+            x['attributes']['ref-area']['label']
+            for x in chart_data[0]['data']
+        }
+        t_dict = {x['notation']: x['ending_label'] for x in chart_data}
 
         extra_info = self.request.form.pop('chart_filter_labels')
         if type(extra_info) is str:
@@ -330,8 +373,10 @@ class ExportCSV(BrowserView):
         }
 
         applied_filters_data = {
-            u'filter-labels': extra_info['filters'],
-            u'annotations': annotations.get('blocks', [])
+            u'filters-applied': metadata['filters-applied'],
+            u'annotations': annotations.get('blocks', []),
+            u'countries': c_dict,
+            u'time_period': t_dict
         }
 
         wb = Workbook()
