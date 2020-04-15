@@ -2,16 +2,17 @@ import cairosvg
 import csv
 import datetime
 import json
-import re
+import logging
 import tempfile
 
 from openpyxl.styles import Alignment
 from openpyxl.styles import Font
 from openpyxl import Workbook
-from plone import api
 from Products.Five.browser import BrowserView
 from StringIO import StringIO
 from zope.component import queryMultiAdapter
+
+logger = logging.getLogger(__name__)
 
 
 class ExportCSV(BrowserView):
@@ -20,9 +21,7 @@ class ExportCSV(BrowserView):
     def write_headers(self, sheet, headers, row):
         col = 1
         for h in headers:
-            header = 'Category' if h=='name' else h.capitalize()
-
-            sheet.cell(row=row, column=col).value = header
+            sheet.cell(row=row, column=col).value = h.upper()
             sheet.cell(row=row, column=col).font = Font(bold=True)
             col += 1
 
@@ -33,91 +32,91 @@ class ExportCSV(BrowserView):
     def datapoints(self, sheet, chart_data):
         """ Export single dimension series to CSV
         """
-        try:
-            if len(chart_data) < 1:
-                return ""
-        except:
-            return ""
+        # check if multiple series
+        headers = ['category', 'code', 'value', 'note', 'flag']
+        if chart_data[0].get('name'):
+            headers = ['series'] + headers
 
-        headers = ['series', 'name', 'code', 'y', 'note', 'flag']
         self.write_headers(sheet, headers, row=1)
+        sheet.column_dimensions['A'].width = 50
 
         row = 2
         for series in chart_data:
             for point in series['data']:
-                encoded = {}
-                encoded['series'] = series.get('name', '-')
-                encoded['name'] = point.get('name', '-')
-
+                value = (
+                    point.get('y')
+                    if not point.get('isNA', False)
+                    else None
+                )
                 flag = point.get('attributes').get('flag')
-                encoded['flag'] = flag.get('label') if flag else None
-                encoded['note'] = point.get('attributes').get('note')
-                for key in headers[1:-2]:
-                    encoded[key] = unicode(point.get(key, '-')).encode('utf-8')
-                    if point.get('isNA', False):
-                        encoded['y'] = None
-
+                encoded = {
+                    'series': series.get('name'),
+                    'category': point.get('name'),
+                    'code': point.get('code'),
+                    'value': value,
+                    'flag': "{} ({})".format(
+                        flag.get('notation'), flag.get('label')
+                    ) if flag else None,
+                    'note': point.get('attributes').get('note'),
+                }
                 self.write_encoded_val(headers, sheet, encoded, row)
                 row += 1
 
     def datapoints_n(self, sheet, chart_data):
         """ Export multiple dimension series to CSV
         """
-        try:
-            if len(chart_data) < 1:
-                return ""
-        except:
-            return ""
-
-        coords = {'x', 'y', 'z'}
         keys = set(chart_data[0][0].get('data', [{}])[0].keys())
 
-        headers = ['series', 'name', 'x', 'y', 'z']
-
-        if keys.intersection(coords) != coords:
-            headers = ['series', 'name', 'x', 'y']
-
+        headers = ['series', 'name', 'x', 'y']
+        if 'z' in keys:
+            headers.append('z')
         headers += ['note', 'flag']
         self.write_headers(sheet, headers, row=1)
 
         row = 2
         for series in chart_data:
             for point in series:
-                encoded = {}
-                encoded['series'] = point['name']
+                point_data = point['data'][0]
+                attributes = point_data.get('attributes', {})
+                flag = attributes.get('flag', {}).get('x', {})
+                flag = "{} ({})".format(
+                    flag.get('notation'), flag.get('label')
+                ) if flag else None
+                encoded = {
+                    'series': point['name'],
+                    'name': point_data['name'],
+                    'x': point_data['x'],
+                    'y': point_data['y'],
+                    'z': point_data['z'] if 'z' in keys else None,
+                    'flag': flag,
+                    'note': attributes.get('note', {}).get('x', None),
+                }
 
-                encoded['flag'] = None
-                encoded['note'] = None
-
-                for data in point['data']:
-                    for key in headers[1:-2]:
-                        encoded[key] = unicode(data[key]).encode('utf-8')
-
-                    for idx, h in enumerate(headers):
-                        sheet.cell(row=row, column=idx + 1).value = encoded[h]
-
-                    row += 1
+                self.write_encoded_val(headers, sheet, encoded, row)
+                row += 1
 
     def datapoints_profile(self, sheet, chart_data):
-        headers = ['name', 'eu', 'original', 'note', 'flag']
-        extra_headers = ['period']
-        self.write_headers(sheet, extra_headers + headers, row=1)
+        headers = [
+            'period', 'indicator', 'EU average', 'value', 'note', 'flag'
+        ]
+        self.write_headers(sheet, headers, row=1)
 
         row = 2
         for series in chart_data:
             for point in series['data']:
-                flag = point.get('attributes').get('flag')
-                encoded = {}
-                encoded['flag'] = flag.get('label') if flag else None
-                encoded['note'] = point.get('attributes').get('note')
-                for key in headers[:-2]:
-                    encoded[key] = unicode(point[key]).encode('utf-8')
-                period = point['attributes']['time-period']['notation']
-                encoded['period'] = unicode(period).encode('utf-8')
-               
-                self.write_encoded_val(
-                    extra_headers + headers, sheet, encoded, row
-                )
+                attr = point.get('attributes', {})
+                flag = attr.get('flag')
+                encoded = {
+                    'period': attr['time-period']['notation'],
+                    'indicator': point.get('name'),
+                    'EU average':  point.get('eu'),
+                    'value': point.get('original'),
+                    'flag': '{} ({})'.format(
+                            flag.get('notation'), flag.get('label')
+                    ) if flag else None,
+                    'note': attr.get('note')
+                }
+                self.write_encoded_val(headers, sheet, encoded, row)
                 row += 1
 
     def datapoints_profile_table(self, sheet, chart_data):
@@ -133,30 +132,27 @@ class ExportCSV(BrowserView):
             ]
 
             headers = (['country', 'indicator', 'breakdown', 'unit'] + years +
-                       ['EU28 value %s' %latest, 'rank'])
+                       ['EU28 value %s' % latest, 'rank'])
 
             self.write_headers(sheet, headers, row=row)
+            sheet.column_dimensions['A'].width = 15
+            sheet.column_dimensions['E'].width = 12
+            sheet.column_dimensions['F'].width = 12
+            sheet.column_dimensions['G'].width = 12
+            sheet.column_dimensions['H'].width = 12
 
             row += 1
             encoded['country'] = series['data']['ref-area']['label']
             for ind in series['data']['table'].values():
-                encoded['indicator'] = unicode(ind['indicator']).encode(
-                    'utf-8'
-                )
-                encoded['breakdown'] = unicode(ind['breakdown']).encode(
-                    'utf-8'
-                )
-                encoded['unit'] = unicode(ind['unit-measure']).encode('utf-8')
+                encoded['indicator'] = ind['indicator']
+                encoded['breakdown'] = ind['breakdown']
+                encoded['unit'] = ind['unit-measure']
                 for year in years:
-                    encoded[year] = unicode(ind.get(year, '-')).encode('utf-8')
-                #encoded['%s' %latest] = unicode(ind.get('%s' %latest, '-')).encode('utf-8')
-                encoded['EU28 value %s' %latest] = unicode(
-                        ind.get('eu', '-')).encode('utf-8')
+                    encoded[year] = ind.get(year, '-')
+                encoded['EU28 value %s' % latest] = ind.get('eu', '-')
                 rank = ind.get('rank', '-')
-                if rank == 0:
-                    rank = '-'
-                encoded['rank'] = unicode(rank).encode('utf-8')
-                
+                encoded['rank'] = rank if rank != 0 else '-'
+
                 self.write_encoded_val(headers, sheet, encoded, row)
                 row += 1
 
@@ -169,126 +165,115 @@ class ExportCSV(BrowserView):
         row = 2
         for series in chart_data:
             for point in series['data']:
-                encoded = {}
-                encoded['country'] = unicode(
-                    point['attributes']['ref-area']['notation']
-                ).encode('utf-8')
-                encoded['category'] = unicode(point['title']).encode('utf-8')
-                encoded['indicator'] = unicode(
-                    point['attributes']['indicator']['notation']
-                ).encode('utf-8')
-                encoded['breakdown'] = unicode(
-                    point['attributes']['breakdown']['notation']
-                ).encode('utf-8')
-                encoded['unit'] = unicode(
-                    point['attributes']['unit-measure']['notation']
-                ).encode('utf-8')
-                encoded['eu'] = unicode(
-                    point['attributes']['eu']
-                ).encode('utf-8')
-                encoded['original'] = unicode(
-                    point['attributes']['original']
-                ).encode('utf-8')
-                encoded['period'] = unicode(
-                    point['attributes']['time-period']['notation']
-                ).encode('utf-8')
-                
+                attrs = point['attributes']
+                encoded = {
+                 'country': attrs['ref-area']['notation'],
+                 'category': point['title'],
+                 'indicator': attrs['indicator']['notation'],
+                 'breakdown': attrs['breakdown']['notation'],
+                 'unit': attrs['unit-measure']['notation'],
+                 'eu': attrs['eu'],
+                 'original': attrs['original'],
+                 'period': attrs['time-period']['notation'],
+                }
+
                 self.write_encoded_val(headers, sheet, encoded, row)
                 row += 1
 
     def write_general_sheet(self, sheet, data):
+        sheet.column_dimensions['B'].width = 100
         sheet.cell(row=1, column=1).value = 'Chart title'
 
         chart_url = data.get('chart-url', None)
-        chart_title = data.get('chart-title', '-')
-        chart_subtitle = data.get('chart-subtitle', None)
+        chart_title = data.get('chart_title', '-')
+        chart_subtitle = data.get('chart_subtitle', None)
 
         if chart_subtitle:
-            chart_title = '{} ({})'.format(chart_title, chart_subtitle)
+            chart_title = '{} | {}'.format(chart_title, chart_subtitle)
 
         if chart_url:
             sheet.cell(row=1, column=2).hyperlink = chart_url
+            sheet.cell(row=1, column=2).style = "Hyperlink"
         sheet.cell(row=1, column=2).value = chart_title
 
         sheet.cell(row=2, column=1).value = 'Source dataset'
         sheet.cell(row=2, column=2).value = data.get('source-dataset', '-')
 
-        sheet.cell(row=3, column=1).value = 'Extraction-Date'
-        sheet.cell(row=3, column=2).value = datetime.date.today()
+        sheet.cell(row=3, column=1).value = 'Dataset metadata and download'
+        sheet.cell(row=3, column=2).hyperlink = data.get('metadata_details_url')
+        sheet.cell(row=3, column=2).value = data.get('metadata_details_url')
+        sheet.cell(row=3, column=2).style = "Hyperlink"
 
         sheet.cell(row=4, column=1).value = 'List of available indicators'
+        sheet.cell(row=4, column=2).hyperlink = data.get('indicators_details_url')
         sheet.cell(row=4, column=2).value = data.get('indicators_details_url')
+        sheet.cell(row=4, column=2).style = "Hyperlink"
+
+        sheet.cell(row=5, column=1).value = 'Extraction date'
+        sheet.cell(row=5, column=2).value = datetime.date.today()
+
+    def write_filter_row(self, sheet, row, dimension, notation):
+        cube = self.context.get_cube()
+        notation_meta = cube.metadata.lookup_notation(dimension, notation)
+        sheet.cell(row=row, column=2).value = notation
+        sheet.cell(row=row, column=3).value = notation_meta.get('label', notation)
+        sheet.cell(row=row, column=4).value = notation_meta.get('definition')
+        sheet.cell(row=row, column=5).value = notation_meta.get('source_label')
 
     def write_applied_filters_sheet(self, sheet, data):
-        header = [u'Filter', u'Notation', u'Label', u'Definition']
+        header = ['Filter', 'Notation', 'Label', 'Definition', 'Source']
         self.write_headers(sheet, header, row=1)
+        sheet.column_dimensions['A'].width = 20
+        sheet.column_dimensions['B'].width = 20
+        sheet.column_dimensions['C'].width = 60
+        sheet.column_dimensions['D'].width = 60
+        sheet.column_dimensions['E'].width = 60
 
-        filter_notations = [x[0] for x in data['filters-applied']]
+        cube = self.context.get_cube()
         row = 2
-        for anno in data['annotations']:
-            if anno['notation'] not in filter_notations:
-                sheet.cell(row=row, column=1).value = anno['filter_label']
-                sheet.cell(row=row, column=2).value = anno['notation']
-                sheet.cell(row=row, column=3).value = anno['label']
-                sheet.cell(row=row, column=4).value = anno.get(
-                    'definition', None
-                )
-
-            row += 1
-
-        url = self.request.getURL()
-        result = re.search('/(.*)/export.csv', url)
-        dataset_name = result.group(1).rsplit('/', 1)[-1]
-        portal = api.portal.get()
-        cube = portal.unrestrictedTraverse(
-            'datasets/{}'.format(dataset_name)
-        ).get_cube()
-        cd = cube.metadata.load_dimensions()
-        lookup_base = 'http://semantic.digital-agenda-data.eu/def/property/'
-
-        sheet.cell(row=row, column=1).value = 'Breakdown Group'
-        sheet.cell(row=row, column=2).value = 'any'
-
-        row += 1
-
-        for notation, value in data['filters-applied']:
-            try:
-                label = cd[lookup_base + notation]['label']
-            except:
-                label = notation
-            sheet.cell(row=row, column=1).value = label.replace(
-                '-', ' '
-            ).title()
-            row_incr = 0
-            if notation == 'breakdown-group':
+        for dimension, value in data:
+            # get dimension names
+            if (
+                dimension.endswith('-slider-values') or
+                dimension.endswith('-normalized-values')
+            ):
+                # DESI sliders need special handling
+                # TODO
                 continue
-            elif type(value) is list:
-                is_country = notation == 'ref-area'
-                is_tp = notation == 'time-period'
-
-                if is_country:
-                    value = data['countries'].keys()
-
-                sheet.merge_cells(
-                    start_row=row, start_column=1,
-                    end_row=row + len(value) - 1, end_column=1
+            dimension_prefix = None
+            if dimension[:2] in ('x-', 'y-', 'z-'):
+                # multi-dimensional chart
+                dimension_prefix = dimension[0].upper()
+                dimension = dimension[2:]
+            dimension_uri = cube.metadata.lookup_dimension_uri(dimension)
+            dimension_label = (
+                cube.metadata.lookup_dimension_info(dimension_uri)
+                    .get('label', dimension)
+            )
+            if dimension_prefix:
+                dimension_label = '({}) {}'.format(
+                    dimension_prefix, dimension_label
                 )
-
-                for el in value:
-                    sheet.cell(row=row + row_incr, column=2).value = el
-                    if is_country:
-                        sheet.cell(row=row + row_incr, column=3).value = data[
-                            'countries'
-                        ][el]
-                    elif is_tp:
-                        sheet.cell(row=row + row_incr, column=3).value = data[
-                            'time_period'
-                        ][el]
-
-                    row_incr += 1
-                row += row_incr
-            else:
-                sheet.cell(row=row, column=2).value = value
+            if type(value) is list:
+                if (
+                    'any' in value or
+                    cube.metadata.is_group_dimension(dimension_uri)
+                ):
+                    # skip redundant selections
+                    continue
+                first_row = row
+                sheet.cell(row=row, column=1).value = dimension_label
+                for notation in value:
+                    self.write_filter_row(sheet, row, dimension, notation)
+                    row += 1
+                sheet.merge_cells(
+                    start_row=first_row, start_column=1,
+                    end_row=row-1, end_column=1
+                )
+            elif value != 'any':
+                # this is a simple value
+                sheet.cell(row=row, column=1).value = dimension_label
+                self.write_filter_row(sheet, row, dimension, value)
                 row += 1
 
     def write_observation_data_sheet(self, sheet, chart_data):
@@ -318,65 +303,38 @@ class ExportCSV(BrowserView):
         sheet_fct(sheet, data)
         self.apply_styles(sheet)
 
-        if filters_sheet:
-            sheet.column_dimensions['C'].width = 50
-
     @staticmethod
-    def apply_styles(sheet, col_width=30, alignment='center'):
+    def apply_styles(sheet, min_width=30, alignment='top'):
         # Set cell width, center cells
         for col in sheet.columns:
             idx = col[0].column
-            sheet.column_dimensions[idx].width = col_width
+            if not sheet.column_dimensions[idx].width:
+                sheet.column_dimensions[idx].width = min_width
             for cell in col:
                 cell.alignment = Alignment(
                     horizontal='left',
                     vertical=alignment,
                     wrapText=True
                 )
-        # Set cell height
-        for row in sheet.rows:
-            idx = row[0].row
-            sheet.row_dimensions[idx].height = 30
 
     def export(self):
         if not self.request.form.get('chart_data'):
             return
 
-        metadata = {}
-        if self.request.form.get('metadata'):
-            metadata = json.loads(self.request.form.pop('metadata'))
+        metadata = json.loads(self.request.form.get('metadata'))
+        cube_url = self.request.form.get('cube_url')
 
-        annotations = {}
-        if self.request.form.get('annotations'):
-            annotations = json.loads(self.request.form.pop('annotations'))
-
-        chart_data = json.loads(self.request.form.pop('chart_data'))
-        c_dict = {
-            x['attributes']['ref-area']['notation']:
-            x['attributes']['ref-area']['label']
-            for x in chart_data[0]['data']
-        }
-        t_dict = {x['notation']: x['ending_label'] for x in chart_data}
-
-        extra_info = self.request.form.pop('chart_filter_labels')
-        if type(extra_info) is str:
-            extra_info = json.loads(extra_info)
-        else:
-            extra_info = json.loads(extra_info[0])
+        # These are also found in metadata, but may not be always updated
+        chart_title = self.request.form.get('chart_title', '')
+        chart_subtitle = self.request.form.get('chart_subtitle', '')
 
         general_info_data = {
-            u'chart-title': metadata['chart-title'],
-            u'chart-subtitle': extra_info.get('chart_subtitle'),
+            u'chart_title': chart_title,
+            u'chart_subtitle': chart_subtitle,
             u'chart-url': metadata['chart-url'],
             u'source-dataset': metadata['source-dataset'],
-            u'indicators_details_url': annotations.get('indicators_details_url')
-        }
-
-        applied_filters_data = {
-            u'filters-applied': metadata['filters-applied'],
-            u'annotations': annotations.get('blocks', []),
-            u'countries': c_dict,
-            u'time_period': t_dict
+            u'indicators_details_url': cube_url + '/indicators',
+            u'metadata_details_url': cube_url + '/#download',
         }
 
         wb = Workbook()
@@ -385,11 +343,12 @@ class ExportCSV(BrowserView):
             self.write_general_sheet
         )
         self.make_sheet(
-            wb, 'Applied Filters', applied_filters_data,
+            wb, 'Applied Filters', metadata['filters-applied'],
             self.write_applied_filters_sheet
         )
         self.make_sheet(
-            wb, 'Data', chart_data,
+            wb, 'Data',
+            json.loads(self.request.form.pop('chart_data')),
             self.write_observation_data_sheet
         )
 
@@ -419,7 +378,9 @@ class ExportCSV(BrowserView):
             stream.seek(0)
 
             self.request.response.setHeader(
-                'Content-Type', 'application/vnd.ms-excel; charset=utf-8')
+                'Content-Type',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
             self.request.response.setHeader(
                 'Content-Disposition',
                 'attachment; filename="%s.xlsx"' % filename)
