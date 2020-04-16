@@ -229,17 +229,30 @@ class ExportCSV(BrowserView):
         sheet.column_dimensions['D'].width = 60
         sheet.column_dimensions['E'].width = 60
 
+        start_row_dict = {}  # first row of each dimension
+
         cube = self.context.get_cube()
         row = 2
         for dimension, value in data:
-            # get dimension names
-            if (
-                dimension.endswith('-slider-values') or
-                dimension.endswith('-normalized-values')
-            ):
-                # DESI sliders need special handling
-                # TODO
+            # Special handling for DESI sliders
+            if dimension.endswith('-slider-values'):
+                # assume the base dimension has already been written
+                start_row = start_row_dict.get(dimension[:-14])
+                for idx, weight in enumerate(value):
+                    cell = sheet.cell(row=start_row+idx, column=3)
+                    cell.value = cell.value + ' | Weight: %d/10' % weight
                 continue
+            if dimension.endswith('-normalized-values'):
+                # assume the base dimension has already been written
+                start_row = start_row_dict.get(dimension[:-18])
+                for idx, percent in enumerate(value):
+                    cell = sheet.cell(row=start_row+idx, column=3)
+                    cell.value = cell.value + ' (%s)' % percent
+                continue
+
+            if dimension not in start_row_dict:
+                start_row_dict[dimension] = row
+
             dimension_prefix = None
             if dimension[:2] in ('x-', 'y-', 'z-'):
                 # multi-dimensional chart
