@@ -368,6 +368,7 @@ class ExportCSV(BrowserView):
         return self.download_xls(wb)
 
     def convert_to_csv(self, workbook, stream):
+        # no longer needed, but this code is nice
         sheets = workbook.worksheets
 
         writer = csv.writer(stream)
@@ -379,37 +380,24 @@ class ExportCSV(BrowserView):
         return stream
 
     def download_xls(self, wb):
-        to_xlsx = self.request.form.get('format') == 'xlsx'
         title = self.context.getId().replace(" ", "_")
         timestamp = datetime.date.today().strftime("%d_%m_%Y")
 
         filename = title + '_' + str(timestamp)
 
-        if to_xlsx:
-            stream = StringIO()
-            wb.save(stream)
-            stream.seek(0)
+        stream = StringIO()
+        wb.save(stream)
+        stream.seek(0)
 
-            self.request.response.setHeader(
-                'Content-Type',
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            )
-            self.request.response.setHeader(
-                'Content-Disposition',
-                'attachment; filename="%s.xlsx"' % filename)
+        self.request.response.setHeader(
+            'Content-Type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        self.request.response.setHeader(
+            'Content-Disposition',
+            'attachment; filename="%s.xlsx"' % filename)
 
-            return stream.read()
-        else:
-            output_stream = self.request.response
-
-            self.request.response.setHeader(
-                'Content-Type', 'application/csv; charset=utf-8')
-            self.request.response.setHeader(
-                'Content-Disposition',
-                'attachment; filename="%s.csv"' % filename)
-
-            self.convert_to_csv(wb, output_stream)
-            return self.request.response
+        return stream.read()
 
 
 class ExportRDF(BrowserView):
