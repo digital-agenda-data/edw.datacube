@@ -1,3 +1,4 @@
+import pdb
 import time
 import urllib
 import urllib2
@@ -312,7 +313,6 @@ class Cube(object):
         except sparql.SparqlException as e:
             if SPARQL_DEBUG:
                 logger.error('Query failed [%d]', query_id)
-            raise
             raise
         if SPARQL_DEBUG:
             logger.info('Query [%d] took %.2f seconds.', query_id, time.time() - t0)

@@ -26,8 +26,8 @@ WHERE {
   UNION { ?uri dad-prop:order ?order}
   UNION { ?uri dc:source [
         skos:prefLabel ?source_label ;
-        skos:definition ?source_definition ;
-        foaf:page ?source_url ] }
+        skos:definition ?source_definition] }
+  UNION {?uri dc:source [foaf:page ?source_url] }
   UNION {?uri dc:source [skos:note ?source_notes] }
 
 FILTER (
